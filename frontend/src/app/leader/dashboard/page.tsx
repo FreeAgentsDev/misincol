@@ -202,6 +202,7 @@ export default async function LeaderDashboard({ searchParams }: Props) {
               <MembersSection
                 members={team.members}
                 activities={activePlan.activities}
+                teamId={teamId}
               />
             </div>
           </div>
