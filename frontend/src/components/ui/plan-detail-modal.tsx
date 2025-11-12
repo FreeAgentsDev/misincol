@@ -69,7 +69,7 @@ export function PlanDetailModal({ plan, team, isOpen, onClose }: Props) {
   return (
     <>
       <Modal isOpen={isOpen} onClose={onClose} title={plan.name}>
-        <div className="space-y-6">
+        <div className="space-y-6 max-h-[calc(100vh-12rem)] overflow-y-auto">
           {/* Información del plan */}
           <div className="space-y-3">
             <div className="flex flex-wrap gap-2 text-xs font-semibold">
@@ -96,49 +96,48 @@ export function PlanDetailModal({ plan, team, isOpen, onClose }: Props) {
             <p className="text-sm leading-6 text-cocoa-700">{plan.summary}</p>
           </div>
 
-          {/* Tareas por categoría */}
+          {/* Tabla de actividades */}
           <div className="space-y-4">
-            <h3 className="text-base font-semibold text-cocoa-900">Tareas por categoría</h3>
-            <div className="grid gap-4 md:grid-cols-2">
-              {categories.map((category) => {
-                const categoryActivities = activitiesByCategory[category];
+            <h3 className="text-base font-semibold text-cocoa-900">Detalles de actividades</h3>
+            <div className="overflow-x-auto">
+              <table className="min-w-full border-collapse text-xs">
+                <thead>
+                  <tr className="bg-amber-500/90 text-cocoa-900">
+                    <th className="border border-sand-300 px-2 py-2 text-left font-semibold">ESTADO</th>
+                    <th className="border border-sand-300 px-2 py-2 text-left font-semibold">ETAPA</th>
+                    <th className="border border-sand-300 px-2 py-2 text-left font-semibold">objetivo #:</th>
+                    <th className="border border-sand-300 px-2 py-2 text-left font-semibold">DESCRIPCIÓN DE ACTIVIDADES</th>
+                    <th className="border border-sand-300 px-2 py-2 text-left font-semibold">SITUACIÓN ACTUAL</th>
+                    <th className="border border-sand-300 px-2 py-2 text-left font-semibold">A mediano plazo</th>
+                    <th className="border border-sand-300 px-2 py-2 text-left font-semibold">A largo plazo</th>
+                    <th className="border border-sand-300 px-2 py-2 text-left font-semibold">RESPONSABLE</th>
+                    <th className="border border-sand-300 px-2 py-2 text-left font-semibold">Frecuencia</th>
+                    <th className="border border-sand-300 px-2 py-2 text-left font-semibold">Número de veces en el año</th>
+                    <th className="border border-sand-300 px-2 py-2 text-left font-semibold">FECHA INICIO</th>
+                    <th className="border border-sand-300 px-2 py-2 text-left font-semibold">FECHA FINAL</th>
+                    <th className="border border-sand-300 px-2 py-2 text-left font-semibold">TOTAL DE SEMANAS</th>
+                    <th className="border border-sand-300 px-2 py-2 text-left font-semibold">SEMANAS RESTANTES</th>
+                    <th className="border border-sand-300 px-2 py-2 text-left font-semibold">UNITARIO</th>
+                    <th className="border border-sand-300 px-2 py-2 text-left font-semibold">TOTAL</th>
+                    <th className="border border-sand-300 px-2 py-2 text-left font-semibold">Obstáculos a vencer</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {plan.activities.length > 0 ? (
+                    plan.activities.map((activity, index) => {
+                      const budgetUnit = activity.timesPerYear > 0 
+                        ? activity.budgetTotal / activity.timesPerYear 
+                        : activity.budgetTotal;
 
-                return (
-                  <div
-                    key={category}
-                    className="rounded-xl border border-sand-200 bg-white/80 p-4"
-                  >
-                    <div className="flex items-center justify-between mb-3">
-                      <h4 className="text-sm font-semibold text-cocoa-900">{category}</h4>
-                      <span className="rounded-full border border-brand-200 bg-brand-50/70 px-2.5 py-0.5 text-xs font-semibold text-brand-600">
-                        {categoryActivities.length} tareas
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between text-xs font-semibold mb-3">
-                      <span className="inline-flex items-center gap-1.5 text-emerald-600">
-                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500/80" />
-                        {doneCount(category)} completadas
-                      </span>
-                      <span className="inline-flex items-center gap-1.5 text-amber-600">
-                        <span className="h-1.5 w-1.5 rounded-full bg-amber-500/80" />
-                        {pendingCount(category)} pendientes
-                      </span>
-                    </div>
-                    {categoryActivities.length > 0 ? (
-                      <div className="space-y-2 max-h-40 overflow-y-auto">
-                        {categoryActivities.map((activity) => (
-                          <button
-                            key={activity.id}
-                            type="button"
-                            onClick={() => handleActivityClick(activity)}
-                            className="w-full rounded-lg border border-sand-200 bg-white/90 p-2.5 text-left text-xs transition hover:border-brand-200 hover:bg-brand-50/50"
-                          >
-                            <p className="font-semibold text-cocoa-900">{activity.name}</p>
-                            <p className="mt-0.5 text-cocoa-500">
-                              {activity.responsable} · {activity.area}
-                            </p>
+                      return (
+                        <tr
+                          key={activity.id}
+                          className="bg-white hover:bg-brand-50/30 transition cursor-pointer"
+                          onClick={() => handleActivityClick(activity)}
+                        >
+                          <td className="border border-sand-200 px-2 py-2">
                             <span
-                              className={`mt-1.5 inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-semibold ${
+                              className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-semibold ${
                                 activity.status === "Hecha"
                                   ? "border-emerald-200 bg-emerald-50 text-emerald-700"
                                   : "border-amber-200 bg-amber-50 text-amber-700"
@@ -146,17 +145,51 @@ export function PlanDetailModal({ plan, team, isOpen, onClose }: Props) {
                             >
                               {activity.status}
                             </span>
-                          </button>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="rounded-lg border border-dashed border-sand-200 bg-white/70 p-2.5 text-center text-xs text-cocoa-500">
-                        Sin tareas en esta categoría
-                      </p>
-                    )}
-                  </div>
-                );
-              })}
+                          </td>
+                          <td className="border border-sand-200 px-2 py-2 text-cocoa-700">{activity.stage || "-"}</td>
+                          <td className="border border-sand-200 px-2 py-2 text-cocoa-700">{activity.objective ? "1" : "-"}</td>
+                          <td className="border border-sand-200 px-2 py-2 text-cocoa-700 font-medium">{activity.name}</td>
+                          <td className="border border-sand-200 px-2 py-2 text-cocoa-600">{activity.currentSituation || "-"}</td>
+                          <td className="border border-sand-200 px-2 py-2 text-cocoa-700">{activity.goalMid || "-"}</td>
+                          <td className="border border-sand-200 px-2 py-2 text-cocoa-700">{activity.goalLong || "-"}</td>
+                          <td className="border border-sand-200 px-2 py-2 text-cocoa-700">{activity.responsable || "-"}</td>
+                          <td className="border border-sand-200 px-2 py-2 text-cocoa-700">{activity.frequency || "-"}</td>
+                          <td className="border border-sand-200 px-2 py-2 text-cocoa-700 text-center">{activity.timesPerYear || 0}</td>
+                          <td className="border border-sand-200 px-2 py-2 text-cocoa-700">{activity.startDate || "-"}</td>
+                          <td className="border border-sand-200 px-2 py-2 text-cocoa-700">{activity.endDate || "-"}</td>
+                          <td className="border border-sand-200 px-2 py-2 text-cocoa-700 text-center">{activity.totalWeeks || 0}</td>
+                          <td className="border border-sand-200 px-2 py-2 text-cocoa-700 text-center">{activity.remainingWeeks || 0}</td>
+                          <td className="border border-sand-200 px-2 py-2 text-cocoa-700 text-right">
+                            {budgetUnit > 0
+                              ? budgetUnit.toLocaleString("es-CO", {
+                                  style: "currency",
+                                  currency: "COP",
+                                  maximumFractionDigits: 0
+                                })
+                              : "$ -"}
+                          </td>
+                          <td className="border border-sand-200 px-2 py-2 text-cocoa-700 text-right font-semibold">
+                            {activity.budgetTotal > 0
+                              ? activity.budgetTotal.toLocaleString("es-CO", {
+                                  style: "currency",
+                                  currency: "COP",
+                                  maximumFractionDigits: 0
+                                })
+                              : "$ -"}
+                          </td>
+                          <td className="border border-sand-200 px-2 py-2 text-cocoa-600">{activity.obstacles || "-"}</td>
+                        </tr>
+                      );
+                    })
+                  ) : (
+                    <tr>
+                      <td colSpan={17} className="border border-sand-200 px-4 py-8 text-center text-cocoa-500">
+                        No hay actividades registradas
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>

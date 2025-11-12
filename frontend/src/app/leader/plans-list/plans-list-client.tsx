@@ -1,8 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import Link from "next/link";
 import { PlanStatus, DevelopmentPlan } from "@/lib/types";
-import { PlanDetailModal } from "@/components/ui/plan-detail-modal";
 
 interface Props {
   plans: DevelopmentPlan[];
@@ -11,9 +10,6 @@ interface Props {
 }
 
 export function LeaderPlansListClient({ plans, team, teamId }: Props) {
-  const [selectedPlan, setSelectedPlan] = useState<DevelopmentPlan | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-
   // Agrupar planes por estado
   const plansByStatus: Record<PlanStatus, DevelopmentPlan[]> = {
     Activo: plans.filter((p) => p.status === "Activo"),
@@ -25,11 +21,6 @@ export function LeaderPlansListClient({ plans, team, teamId }: Props) {
     plan.activities.filter((a) => a.status === "Hecha").length;
   const pendingCount = (plan: DevelopmentPlan) =>
     plan.activities.filter((a) => a.status === "Pendiente").length;
-
-  const handlePlanClick = (plan: DevelopmentPlan) => {
-    setSelectedPlan(plan);
-    setIsModalOpen(true);
-  };
 
   return (
     <>
@@ -45,7 +36,7 @@ export function LeaderPlansListClient({ plans, team, teamId }: Props) {
           </div>
           <p className="max-w-3xl text-sm leading-6 text-cocoa-600">
             Consulta todos los planes de desarrollo de tu equipo. Haz clic en cualquier plan para
-            ver sus detalles.
+            ver la vista completa con todos los detalles.
           </p>
         </header>
 
@@ -62,10 +53,9 @@ export function LeaderPlansListClient({ plans, team, teamId }: Props) {
               </div>
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {plansByStatus.Activo.map((plan) => (
-                  <button
+                  <Link
                     key={plan.id}
-                    type="button"
-                    onClick={() => handlePlanClick(plan)}
+                    href={`/leader/plans/${plan.id}?team=${teamId}`}
                     className="group rounded-2xl border border-sand-200 bg-white/80 p-5 text-left transition hover:border-brand-200 hover:bg-brand-50/60 hover:shadow-md"
                   >
                     <div className="space-y-3">
@@ -104,7 +94,7 @@ export function LeaderPlansListClient({ plans, team, teamId }: Props) {
                         </span>
                       </div>
                     </div>
-                  </button>
+                  </Link>
                 ))}
               </div>
             </div>
@@ -122,10 +112,9 @@ export function LeaderPlansListClient({ plans, team, teamId }: Props) {
               </div>
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {plansByStatus.Finalizado.map((plan) => (
-                  <button
+                  <Link
                     key={plan.id}
-                    type="button"
-                    onClick={() => handlePlanClick(plan)}
+                    href={`/leader/plans/${plan.id}?team=${teamId}`}
                     className="group rounded-2xl border border-sand-200 bg-white/80 p-5 text-left transition hover:border-brand-200 hover:bg-brand-50/60 hover:shadow-md"
                   >
                     <div className="space-y-3">
@@ -164,7 +153,7 @@ export function LeaderPlansListClient({ plans, team, teamId }: Props) {
                         </span>
                       </div>
                     </div>
-                  </button>
+                  </Link>
                 ))}
               </div>
             </div>
@@ -182,10 +171,9 @@ export function LeaderPlansListClient({ plans, team, teamId }: Props) {
               </div>
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {plansByStatus.Archivado.map((plan) => (
-                  <button
+                  <Link
                     key={plan.id}
-                    type="button"
-                    onClick={() => handlePlanClick(plan)}
+                    href={`/leader/plans/${plan.id}?team=${teamId}`}
                     className="group rounded-2xl border border-sand-200 bg-white/80 p-5 text-left transition hover:border-brand-200 hover:bg-brand-50/60 hover:shadow-md"
                   >
                     <div className="space-y-3">
@@ -224,7 +212,7 @@ export function LeaderPlansListClient({ plans, team, teamId }: Props) {
                         </span>
                       </div>
                     </div>
-                  </button>
+                  </Link>
                 ))}
               </div>
             </div>
@@ -239,16 +227,6 @@ export function LeaderPlansListClient({ plans, team, teamId }: Props) {
           )}
         </div>
       </section>
-
-      <PlanDetailModal
-        plan={selectedPlan}
-        team={team}
-        isOpen={isModalOpen}
-        onClose={() => {
-          setIsModalOpen(false);
-          setSelectedPlan(null);
-        }}
-      />
     </>
   );
 }

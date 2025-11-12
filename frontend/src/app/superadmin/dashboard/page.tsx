@@ -199,10 +199,10 @@ export default async function SuperAdminDashboard() {
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-cocoa-900">Tareas por categoría</h2>
           <Link
-            href="/superadmin/plans?status=Activo"
+            href="/superadmin/plans-list"
             className="rounded-full border border-sand-200 bg-sand-50/80 px-3 py-1 text-xs font-semibold text-cocoa-600 transition hover:border-brand-200 hover:bg-brand-50/70 hover:text-brand-600"
           >
-            Planes activos
+            Ver todos los planes
           </Link>
         </div>
         <div className="mt-6 grid gap-5 md:grid-cols-2 lg:grid-cols-3">

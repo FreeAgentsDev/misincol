@@ -4,11 +4,12 @@ import { loadTeamById } from "@/lib/mock-data";
 import { TeamDashboardView } from "@/components/ui/team-dashboard-view";
 
 interface Props {
-  params: { teamId: string };
+  params: Promise<{ teamId: string }>;
 }
 
 export default async function SuperAdminTeamDetail({ params }: Props) {
-  const team = await loadTeamById(params.teamId);
+  const resolvedParams = await params;
+  const team = await loadTeamById(resolvedParams.teamId);
 
   if (!team) {
     notFound();
@@ -23,11 +24,11 @@ export default async function SuperAdminTeamDetail({ params }: Props) {
         <div className="flex flex-wrap items-center justify-between gap-4">
           <h1 className="text-3xl font-semibold tracking-tight text-cocoa-900">{team.name}</h1>
           <Link
-            href="/superadmin/dashboard"
+            href="/superadmin/manage"
             className="inline-flex items-center gap-2 text-sm font-semibold text-brand-600 transition hover:text-brand-500"
           >
             <span>←</span>
-            <span>Volver al dashboard</span>
+            <span>Volver al gestor de equipos</span>
           </Link>
         </div>
         <p className="text-sm leading-6 text-cocoa-600">
@@ -43,12 +44,13 @@ export default async function SuperAdminTeamDetail({ params }: Props) {
         </p>
         <div className="flex flex-wrap gap-2">
           {team.members.map((member) => (
-            <span
+            <Link
               key={member.name}
-              className="inline-flex items-center rounded-full border border-sand-200 bg-white/80 px-3 py-1 text-xs font-semibold text-cocoa-600"
+              href={`/superadmin/teams/${team.id}/members`}
+              className="inline-flex items-center rounded-full border border-sand-200 bg-white/80 px-3 py-1 text-xs font-semibold text-cocoa-600 transition hover:border-brand-200 hover:bg-brand-50/60 hover:text-brand-600"
             >
               {member.name} · {member.role}
-            </span>
+            </Link>
           ))}
         </div>
       </header>

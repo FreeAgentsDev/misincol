@@ -111,15 +111,43 @@ export default function LayoutShell({ children }: Props) {
 
   const isActive = (href: string) => {
     const baseHref = href.split("?")[0];
+    
+    // Coincidencia exacta
     if (pathname === baseHref) {
       return true;
     }
-    // Solo activar si es una subruta real, no solo un prefijo compartido
-    // Por ejemplo: /superadmin/plans debería activarse en /superadmin/plans/[id]
-    // pero NO en /superadmin/plans-list
+    
+    // Para "Historial planes" (/superadmin/plans o /leader/plans), solo activar en la ruta exacta
+    // NO activar en /plans/[planId] porque es una vista de detalle de actividades, no historial
+    if (baseHref === "/superadmin/plans" || (baseHref.startsWith("/leader/plans") && !baseHref.includes("plans-list"))) {
+      // Si la ruta actual es una subruta (como /plans/[planId]), no activar "Historial planes"
+      if (pathname.startsWith(baseHref + "/")) {
+        return false;
+      }
+      // Solo activar si es exactamente esa ruta (sin query params en el pathname)
+      const pathnameBase = pathname.split("?")[0];
+      return pathnameBase === baseHref;
+    }
+    
+    // Para "Planes" (/superadmin/plans-list o /leader/plans-list), activar también en /plans/[planId]
+    // porque /plans/[planId] es una vista de detalle de un plan (actividades), no historial
+    if (baseHref === "/superadmin/plans-list") {
+      // Activar en /superadmin/plans-list y en /superadmin/plans/[planId]
+      // pero NO en /superadmin/plans (que es historial)
+      return pathname.startsWith("/superadmin/plans/") && pathname !== "/superadmin/plans";
+    }
+    if (baseHref.includes("/leader/plans-list")) {
+      // Activar en /leader/plans-list y en /leader/plans/[planId]
+      // pero NO en /leader/plans (que es historial)
+      const pathnameBase = pathname.split("?")[0];
+      return pathname.startsWith("/leader/plans/") && pathnameBase !== "/leader/plans";
+    }
+    
+    // Para otras rutas, activar si es una subruta real
     if (pathname.startsWith(baseHref + "/")) {
       return true;
     }
+    
     return false;
   };
 

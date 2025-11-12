@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: "standalone"
+  // Vercel maneja el output automáticamente
 };
 
 export default nextConfig;

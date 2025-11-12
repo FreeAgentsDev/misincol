@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { MemberViewModal, MemberEditModal } from "./member-modals";
+import { useRouter } from "next/navigation";
+import { MemberEditModal } from "./member-modals";
 import { Member, Team, DevelopmentPlan } from "@/lib/types";
 
 interface MembersListProps {
@@ -10,13 +11,13 @@ interface MembersListProps {
 }
 
 export function MembersList({ team, activePlan }: MembersListProps) {
-  const [viewModalOpen, setViewModalOpen] = useState(false);
+  const router = useRouter();
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
 
   const handleView = (member: Member) => {
-    setSelectedMember(member);
-    setViewModalOpen(true);
+    const encodedName = encodeURIComponent(member.name);
+    router.push(`/superadmin/teams/${team.id}/members/${encodedName}`);
   };
 
   const handleEdit = (member: Member) => {
@@ -165,22 +166,6 @@ export function MembersList({ team, activePlan }: MembersListProps) {
           })}
         </div>
       </div>
-
-      <MemberViewModal
-        isOpen={viewModalOpen}
-        onClose={() => {
-          setViewModalOpen(false);
-          setSelectedMember(null);
-        }}
-        member={selectedMember}
-        assignments={
-          selectedMember
-            ? activePlan?.activities.filter(
-                (activity) => activity.responsable === selectedMember.name
-              ) ?? []
-            : []
-        }
-      />
 
       <MemberEditModal
         isOpen={editModalOpen}

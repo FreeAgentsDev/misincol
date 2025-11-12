@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { loadTeams } from "@/lib/mock-data";
 
 export default async function SuperAdminManage() {
@@ -18,9 +19,10 @@ export default async function SuperAdminManage() {
 
       <div className="space-y-4">
         {teams.map((team) => (
-          <div
+          <Link
             key={team.id}
-            className="rounded-3xl bg-white p-6 shadow-card ring-1 ring-slate-200 transition hover:-translate-y-0.5 hover:shadow-2xl"
+            href={`/superadmin/teams/${team.id}`}
+            className="block rounded-3xl bg-white p-6 shadow-card ring-1 ring-slate-200 transition hover:-translate-y-0.5 hover:shadow-2xl"
           >
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div>
@@ -85,7 +87,7 @@ export default async function SuperAdminManage() {
               Acciones simuladas: Crear/editar equipo · Asignar líder y miembros · Ajustar
               presupuesto · Crear nuevo plan
             </div>
-          </div>
+          </Link>
         ))}
       </div>
     </section>

@@ -17,7 +17,10 @@ export default async function SuperAdminPlans({ searchParams }: Props) {
     }))
   );
 
-  // Filtrar por estado si se proporciona
+  // El historial NO debe incluir planes activos, solo finalizados y archivados
+  plans = plans.filter((plan) => plan.status !== "Activo");
+
+  // Filtrar por estado si se proporciona (solo Finalizado o Archivado)
   const statusFilter = typeof searchParams?.status === "string" ? searchParams.status : undefined;
   if (statusFilter) {
     plans = plans.filter((plan) => plan.status === (statusFilter as PlanStatus));
@@ -36,7 +39,7 @@ export default async function SuperAdminPlans({ searchParams }: Props) {
         </div>
         <div className="flex items-center justify-between">
           <p className="max-w-3xl text-sm leading-6 text-cocoa-600">
-            Consulta los planes activos, finalizados y archivados para todos los equipos. Esta vista
+            Consulta los planes finalizados y archivados para todos los equipos. Esta vista
             sirve como punto de partida para duplicar planes o analizar la evolución de cada equipo.
           </p>
           {statusFilter && (

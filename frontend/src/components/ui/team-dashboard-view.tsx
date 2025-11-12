@@ -188,6 +188,7 @@ export function TeamDashboardView({ team }: TeamDashboardViewProps) {
             <MembersSection
               members={team.members}
               activities={activePlan.activities}
+              teamId={team.id}
             />
           </div>
         </div>
