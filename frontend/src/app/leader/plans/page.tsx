@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { loadTeams } from "@/lib/mock-data";
 
 interface Props {
@@ -58,9 +59,18 @@ export default async function LeaderPlans({ searchParams }: Props) {
               </span>
             </div>
             <p className="mt-4 text-sm leading-6 text-cocoa-600">{plan.summary}</p>
-            <p className="mt-3 inline-flex items-center gap-2 rounded-full border border-brand-200 bg-brand-50/70 px-3 py-1 text-xs font-semibold text-brand-600">
-              <span>Actividades ejecutadas:</span> {plan.activities.length}
-            </p>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <p className="inline-flex items-center gap-2 rounded-full border border-brand-200 bg-brand-50/70 px-3 py-1 text-xs font-semibold text-brand-600">
+                <span>Actividades ejecutadas:</span> {plan.activities.length}
+              </p>
+              <Link
+                href={`/leader/plans/${plan.id}?team=${teamId}`}
+                className="inline-flex items-center gap-1 text-xs font-semibold text-brand-600 transition hover:text-brand-500"
+              >
+                <span>Ver vista general</span>
+                <span>→</span>
+              </Link>
+            </div>
           </div>
         ))}
         {pastPlans.length === 0 ? (

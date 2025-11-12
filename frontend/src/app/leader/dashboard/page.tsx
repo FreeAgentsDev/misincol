@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { loadTeams } from "@/lib/mock-data";
 import { PlanCategory } from "@/lib/types";
 import { MembersSection } from "@/components/ui/members-section";
@@ -101,7 +102,16 @@ export default async function LeaderDashboard({ searchParams }: Props) {
                 <p className="text-xs font-semibold uppercase tracking-[0.3em] text-brand-500">
                   Plan activo
                 </p>
-                <h2 className="text-2xl font-semibold text-cocoa-900">{activePlan.name}</h2>
+                <div className="flex items-center gap-3">
+                  <h2 className="text-2xl font-semibold text-cocoa-900">{activePlan.name}</h2>
+                  <Link
+                    href={`/leader/plans/${activePlan.id}?team=${teamId}`}
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-brand-600 transition hover:text-brand-500"
+                  >
+                    <span>Ver vista general</span>
+                    <span>→</span>
+                  </Link>
+                </div>
                 <p className="max-w-2xl text-sm leading-6 text-cocoa-600">{activePlan.summary}</p>
               </div>
               <div className="flex flex-wrap gap-2 text-xs font-semibold">
@@ -295,9 +305,12 @@ export default async function LeaderDashboard({ searchParams }: Props) {
           <div className="card-elevated">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold text-cocoa-900">Tareas por categoría</h2>
-              <span className="rounded-full border border-sand-200 bg-sand-50/80 px-3 py-1 text-xs font-semibold text-cocoa-600">
+              <Link
+                href={`/leader/plans/${activePlan.id}?team=${teamId}`}
+                className="rounded-full border border-sand-200 bg-sand-50/80 px-3 py-1 text-xs font-semibold text-cocoa-600 transition hover:border-brand-200 hover:bg-brand-50/70 hover:text-brand-600"
+              >
                 Plan activo
-              </span>
+              </Link>
             </div>
             <div className="mt-6 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
               {categories.map((category) => {

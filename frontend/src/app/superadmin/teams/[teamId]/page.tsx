@@ -78,9 +78,18 @@ export default async function SuperAdminTeamDetail({ params }: Props) {
                   </span>
                 </div>
                 <p className="mt-3 text-sm leading-6 text-cocoa-600">{plan.summary}</p>
-                <p className="mt-2 inline-flex items-center gap-2 rounded-full border border-brand-200 bg-brand-50/70 px-3 py-1 text-xs font-semibold text-brand-600">
-                  Actividades registradas: {plan.activities.length}
-                </p>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <p className="inline-flex items-center gap-2 rounded-full border border-brand-200 bg-brand-50/70 px-3 py-1 text-xs font-semibold text-brand-600">
+                    Actividades registradas: {plan.activities.length}
+                  </p>
+                  <Link
+                    href={`/superadmin/plans/${plan.id}`}
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-brand-600 transition hover:text-brand-500"
+                  >
+                    <span>Ver vista general</span>
+                    <span>→</span>
+                  </Link>
+                </div>
               </div>
             ))}
           </div>

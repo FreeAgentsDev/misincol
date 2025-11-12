@@ -1,15 +1,27 @@
+import Link from "next/link";
 import { loadTeams } from "@/lib/mock-data";
+import { PlanStatus } from "@/lib/types";
 
-export default async function SuperAdminPlans() {
+interface Props {
+  searchParams?: Record<string, string | string[] | undefined>;
+}
+
+export default async function SuperAdminPlans({ searchParams }: Props) {
   const teams = await loadTeams();
 
-  const plans = teams.flatMap((team) =>
+  let plans = teams.flatMap((team) =>
     team.plans.map((plan) => ({
       ...plan,
       teamName: team.name,
       teamId: team.id
     }))
   );
+
+  // Filtrar por estado si se proporciona
+  const statusFilter = typeof searchParams?.status === "string" ? searchParams.status : undefined;
+  if (statusFilter) {
+    plans = plans.filter((plan) => plan.status === (statusFilter as PlanStatus));
+  }
 
   return (
     <section className="space-y-8">
@@ -22,10 +34,20 @@ export default async function SuperAdminPlans() {
             Historial de planes de desarrollo
           </h1>
         </div>
-        <p className="max-w-3xl text-sm leading-6 text-cocoa-600">
-          Consulta los planes activos, finalizados y archivados para todos los equipos. Esta vista
-          sirve como punto de partida para duplicar planes o analizar la evolución de cada equipo.
-        </p>
+        <div className="flex items-center justify-between">
+          <p className="max-w-3xl text-sm leading-6 text-cocoa-600">
+            Consulta los planes activos, finalizados y archivados para todos los equipos. Esta vista
+            sirve como punto de partida para duplicar planes o analizar la evolución de cada equipo.
+          </p>
+          {statusFilter && (
+            <Link
+              href="/superadmin/plans"
+              className="text-xs font-semibold text-cocoa-500 transition hover:text-cocoa-700"
+            >
+              Ver todos los planes
+            </Link>
+          )}
+        </div>
       </header>
 
       <div className="overflow-hidden rounded-[2rem] border border-white/70 bg-white/85 shadow-soft">
@@ -37,6 +59,7 @@ export default async function SuperAdminPlans() {
               <th className="px-6 py-4 text-left">Periodo</th>
               <th className="px-6 py-4 text-left">Estado</th>
               <th className="px-6 py-4 text-left">Actividades</th>
+              <th className="px-6 py-4 text-left">Acciones</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-sand-100">
@@ -56,6 +79,15 @@ export default async function SuperAdminPlans() {
                   </span>
                 </td>
                 <td className="px-6 py-4 text-cocoa-600">{plan.activities.length}</td>
+                <td className="px-6 py-4">
+                  <Link
+                    href={`/superadmin/plans/${plan.id}`}
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-brand-600 transition hover:text-brand-500"
+                  >
+                    <span>Ver vista general</span>
+                    <span>→</span>
+                  </Link>
+                </td>
               </tr>
             ))}
           </tbody>

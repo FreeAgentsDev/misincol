@@ -293,3 +293,14 @@ export const loadTeamById = cache(async (teamId: string): Promise<Team | null> =
   return teams.find((team) => team.id === teamId) ?? null;
 });
 
+export const loadPlanById = cache(async (planId: string): Promise<{ plan: DevelopmentPlan; team: Team } | null> => {
+  const teams = await loadTeams();
+  for (const team of teams) {
+    const plan = team.plans.find((p) => p.id === planId);
+    if (plan) {
+      return { plan, team };
+    }
+  }
+  return null;
+});
+

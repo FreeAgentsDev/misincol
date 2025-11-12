@@ -70,6 +70,7 @@ export default function LayoutShell({ children }: Props) {
       return [
         { label: "Dashboard global", href: "/superadmin/dashboard" },
         { label: "Gestor de equipos", href: "/superadmin/manage" },
+        { label: "Planes", href: "/superadmin/plans-list" },
         { label: "Historial planes", href: "/superadmin/plans" }
       ];
     }
@@ -80,6 +81,7 @@ export default function LayoutShell({ children }: Props) {
     return [
       { label: "Dashboard de equipo", href: `/leader/dashboard${suffix}` },
       { label: "Actividades y áreas", href: `/leader/activities${suffix}` },
+      { label: "Planes", href: `/leader/plans-list${suffix}` },
       { label: "Planes anteriores", href: `/leader/plans${suffix}` },
       { label: "Gestor de miembros", href: `/leader/members${suffix}` }
     ];
@@ -112,7 +114,13 @@ export default function LayoutShell({ children }: Props) {
     if (pathname === baseHref) {
       return true;
     }
-    return pathname.startsWith(baseHref);
+    // Solo activar si es una subruta real, no solo un prefijo compartido
+    // Por ejemplo: /superadmin/plans debería activarse en /superadmin/plans/[id]
+    // pero NO en /superadmin/plans-list
+    if (pathname.startsWith(baseHref + "/")) {
+      return true;
+    }
+    return false;
   };
 
   const renderNavLinks = (className: string) =>
