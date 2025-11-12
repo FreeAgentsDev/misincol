@@ -2,9 +2,9 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/context/auth-context";
+import { useAuth, type AuthUser } from "@/context/auth-context";
 
-const DEMO_USERS = [
+const DEMO_USERS: (AuthUser & { password: string })[] = [
   { username: "superadmin", password: "123456", role: "superadmin" },
   { username: "lider-bari", password: "123456", role: "leader", teamId: "team-1" },
   { username: "lider-katios", password: "123456", role: "leader", teamId: "team-2" }
