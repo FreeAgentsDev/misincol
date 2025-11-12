@@ -2,14 +2,14 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { ReactNode, useEffect, useMemo } from "react";
+import { ReactNode, Suspense, useEffect, useMemo } from "react";
 import { useAuth } from "@/context/auth-context";
 
 interface Props {
   children: ReactNode;
 }
 
-export default function LayoutShell({ children }: Props) {
+function LayoutShellContent({ children }: Props) {
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -253,6 +253,23 @@ export default function LayoutShell({ children }: Props) {
         </div>
       </main>
     </div>
+  );
+}
+
+export default function LayoutShell({ children }: Props) {
+  return (
+    <Suspense
+      fallback={
+        <main className="flex min-h-screen items-center justify-center bg-sand-50">
+          <div className="flex items-center gap-3 rounded-3xl border border-white/60 bg-white/85 px-6 py-4 text-cocoa-700 shadow-soft backdrop-blur">
+            <span className="h-2.5 w-2.5 animate-ping rounded-full bg-brand-500" />
+            <span className="text-sm font-medium">Cargando...</span>
+          </div>
+        </main>
+      }
+    >
+      <LayoutShellContent>{children}</LayoutShellContent>
+    </Suspense>
   );
 }
 
