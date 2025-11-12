@@ -51,6 +51,51 @@ export interface DevelopmentPlan {
   activities: Activity[];
 }
 
+export interface TeamMetrics {
+  // Métricas generales
+  population?: number;
+  evangelicalCongregations?: number;
+  evangelicals?: number;
+  
+  // Etapa: Contacto
+  firstTimeContacts?: number;
+  interestedInGospel?: number;
+  heardGospel?: number;
+  
+  // Etapa: Comunicando
+  seekingGod?: number;
+  opportunityToRespond?: number;
+  
+  // Etapa: Respondiendo
+  believedMessage?: number;
+  baptized?: number;
+  
+  // Etapa: Consolidando
+  regularBibleStudies?: number;
+  personallyMentored?: number;
+  newGroupsThisYear?: number;
+  
+  // Etapa: Liderazgo
+  ministerialTraining?: number;
+  otherAreasTraining?: number;
+  pastoralTraining?: number;
+  biblicalTraining?: number;
+  churchPlantingTraining?: number;
+  
+  // Desarrollo eclesial
+  groupsWithChurchProspects?: number;
+  churchesAtEndOfPeriod?: number;
+  firstGenChurches?: number;
+  secondGenChurches?: number;
+  thirdGenChurches?: number;
+  lostFirstGenChurches?: number;
+  lostSecondGenChurches?: number;
+  lostThirdGenChurches?: number;
+  
+  // Lugar de ministerio
+  ministryLocation?: string;
+}
+
 export interface Team {
   id: string;
   name: string;
@@ -60,6 +105,7 @@ export interface Team {
   budgetLiquidated: number;
   budgetPending: number;
   plans: DevelopmentPlan[];
+  metrics?: TeamMetrics;
 }
 
 export interface DashboardTeamMetrics {

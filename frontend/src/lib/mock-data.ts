@@ -7,7 +7,8 @@ import {
   DevelopmentPlan,
   Member,
   PlanStatus,
-  Team
+  Team,
+  TeamMetrics
 } from "./types";
 
 type RawRow = Record<string, string>;
@@ -185,10 +186,62 @@ const buildDomain = (rows: RawRow[]): Team[] => {
     team.budgetLiquidated = liquidated;
     const calculatedPending = Math.max(team.budgetAssigned - liquidated, 0);
     team.budgetPending = pending > 0 ? pending : calculatedPending;
+
+    // Agregar métricas mock para cada equipo
+    team.metrics = generateMockMetrics(team.id);
   });
 
   return Array.from(teamsMap.values());
 };
+
+// Generar métricas mock para cada equipo
+function generateMockMetrics(teamId: string): TeamMetrics {
+  // Generar valores basados en el teamId para mantener consistencia
+  const seed = teamId.charCodeAt(0) + (teamId.length || 0);
+  const baseValue = (seed % 50) + 10;
+
+  return {
+    ministryLocation: `Ubicación ${teamId}`,
+    population: baseValue * 1000,
+    evangelicalCongregations: Math.floor(baseValue / 2),
+    evangelicals: baseValue * 50,
+    
+    // Contacto
+    firstTimeContacts: baseValue + 5,
+    interestedInGospel: Math.floor(baseValue * 0.8),
+    heardGospel: baseValue + 10,
+    
+    // Comunicando
+    seekingGod: Math.floor(baseValue * 0.6),
+    opportunityToRespond: Math.floor(baseValue * 0.5),
+    
+    // Respondiendo
+    believedMessage: Math.floor(baseValue * 0.4),
+    baptized: Math.floor(baseValue * 0.3),
+    
+    // Consolidando
+    regularBibleStudies: Math.floor(baseValue * 0.7),
+    personallyMentored: Math.floor(baseValue * 0.5),
+    newGroupsThisYear: Math.floor(baseValue * 0.3),
+    
+    // Liderazgo
+    ministerialTraining: Math.floor(baseValue * 0.4),
+    otherAreasTraining: Math.floor(baseValue * 0.3),
+    pastoralTraining: Math.floor(baseValue * 0.2),
+    biblicalTraining: Math.floor(baseValue * 0.5),
+    churchPlantingTraining: Math.floor(baseValue * 0.25),
+    
+    // Desarrollo eclesial
+    groupsWithChurchProspects: Math.floor(baseValue * 0.4),
+    churchesAtEndOfPeriod: Math.floor(baseValue * 0.2),
+    firstGenChurches: Math.floor(baseValue * 0.15),
+    secondGenChurches: Math.floor(baseValue * 0.1),
+    thirdGenChurches: Math.floor(baseValue * 0.05),
+    lostFirstGenChurches: 0,
+    lostSecondGenChurches: 0,
+    lostThirdGenChurches: 0
+  };
+}
 
 export const loadTeams = cache(async (): Promise<Team[]> => {
   const filePath = path.join(process.cwd(), "public", "mock-data.csv");

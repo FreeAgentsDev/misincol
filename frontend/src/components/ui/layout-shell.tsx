@@ -54,12 +54,19 @@ export default function LayoutShell({ children }: Props) {
     }
   }, [user, loading, pathname, router, searchParams]);
 
+  // Vistas obligatorias para cada equipo como planes de desarrollo
+  // Cada líder de equipo DEBE tener acceso a estas 4 vistas:
+  // 1. Dashboard de equipo - vista consolidada del plan activo
+  // 2. Actividades y áreas - CRUD de actividades y gestión de áreas
+  // 3. Planes anteriores - historial de planes pasados del equipo
+  // 4. Gestor de miembros - administración de miembros y asignaciones
   const nav = useMemo(() => {
     if (!user) {
       return null;
     }
 
     if (user.role === "superadmin") {
+      // Vistas obligatorias para Super Administrador
       return [
         { label: "Dashboard global", href: "/superadmin/dashboard" },
         { label: "Gestor de equipos", href: "/superadmin/manage" },
@@ -67,6 +74,7 @@ export default function LayoutShell({ children }: Props) {
       ];
     }
 
+    // Vistas obligatorias para cada equipo (líder)
     const suffix = user.teamId ? `?team=${user.teamId}` : "";
 
     return [
@@ -79,21 +87,25 @@ export default function LayoutShell({ children }: Props) {
 
   if (loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-slate-100">
-        <div className="flex items-center gap-3 rounded-2xl bg-white px-6 py-4 shadow-card ring-1 ring-slate-200">
-          <span className="h-3 w-3 animate-ping rounded-full bg-blue-500" />
-          <span className="text-sm font-medium text-slate-600">Cargando...</span>
+      <main className="flex min-h-screen items-center justify-center bg-sand-50">
+        <div className="flex items-center gap-3 rounded-3xl border border-white/60 bg-white/85 px-6 py-4 text-cocoa-700 shadow-soft backdrop-blur">
+          <span className="h-2.5 w-2.5 animate-ping rounded-full bg-brand-500" />
+          <span className="text-sm font-medium">Cargando tu espacio...</span>
         </div>
       </main>
     );
   }
 
   if (!nav || pathname === "/login") {
-    return <main className="flex min-h-screen flex-col bg-slate-100 p-6 md:p-10">{children}</main>;
+    return (
+      <main className="flex min-h-screen flex-col bg-transparent px-6 py-10 md:px-10 lg:px-16">
+        {children}
+      </main>
+    );
   }
 
   const navLinkBase =
-    "rounded-xl px-4 py-2 text-sm font-medium text-slate-200 transition hover:bg-slate-800/70";
+    "group relative flex w-full items-center justify-between gap-3 rounded-2xl px-4 py-2.5 text-sm font-semibold text-sand-100/80 transition hover:bg-white/10 hover:text-white";
 
   const isActive = (href: string) => {
     const baseHref = href.split("?")[0];
@@ -108,28 +120,48 @@ export default function LayoutShell({ children }: Props) {
       <Link
         key={item.href}
         href={item.href}
-        className={`${className} ${isActive(item.href) ? "bg-slate-800/90 text-white" : ""}`}
+        className={`${className} ${isActive(item.href) ? "bg-white/15 text-white shadow-inner" : ""}`}
       >
-        {item.label}
+        <span className="flex items-center gap-2">
+          <span className="h-2 w-2 rounded-full bg-white/40 transition group-hover:bg-white" />
+          {item.label}
+        </span>
+        <span className="text-xs font-medium text-white/60 transition group-hover:text-white">
+          →
+        </span>
       </Link>
     ));
 
   return (
-    <div className="flex min-h-screen flex-col bg-slate-100 lg:flex-row">
-      <aside className="hidden flex-col justify-between bg-slate-950 px-6 py-10 text-slate-100 shadow-2xl lg:flex lg:w-72">
-        <div className="space-y-8">
-          <div>
-            <p className="text-2xl font-semibold tracking-tight">Misincol</p>
+    <div className="flex h-screen flex-col bg-transparent lg:flex-row lg:overflow-hidden">
+      <aside className="hidden h-screen w-80 flex-col justify-between bg-gradient-to-b from-brand-700 via-brand-800 to-cocoa-900 px-8 py-10 text-sand-50 shadow-2xl shadow-brand-900/30 lg:flex lg:fixed lg:left-0 lg:top-0">
+        <div className="space-y-10">
+          <div className="space-y-3">
+            <span className="inline-flex items-center rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-sand-100/70">
+              Misincol
+            </span>
+            <p className="text-3xl font-semibold leading-tight text-white">
+              Gestión de equipos con calidez profesional
+            </p>
             {user ? (
-              <p className="mt-2 text-sm text-slate-400">
-                Sesión: {user.username}
-                {user.role === "leader" && user.teamId ? ` · Equipo ${user.teamId}` : ""}
-              </p>
+              <div className="flex flex-col gap-1 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-sand-100/80">
+                <span className="font-semibold text-white">Sesión activa</span>
+                <span>{user.username}</span>
+                {user.role === "leader" && user.teamId ? (
+                  <span className="text-xs uppercase tracking-wide text-sand-100/60">
+                    Equipo {user.teamId}
+                  </span>
+                ) : (
+                  <span className="text-xs uppercase tracking-wide text-sand-100/60">
+                    Rol: Superadministrador
+                  </span>
+                )}
+              </div>
             ) : null}
           </div>
-          <nav className="space-y-2">
+          <nav className="space-y-1.5">
             {renderNavLinks(
-              `${navLinkBase} flex w-full items-center justify-between gap-2 border border-transparent`
+              `${navLinkBase} border border-white/10 bg-white/0 shadow-none`
             )}
           </nav>
         </div>
@@ -139,20 +171,25 @@ export default function LayoutShell({ children }: Props) {
             logout();
             router.push("/login");
           }}
-          className="inline-flex items-center justify-center rounded-xl border border-slate-600/40 px-4 py-2 text-sm font-semibold text-slate-100 transition hover:bg-slate-800"
+          className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/20 bg-white/10 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-white/15 hover:text-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/15"
         >
-          Cerrar sesión
+          <span>Cerrar sesión</span>
         </button>
       </aside>
-      <main className="flex-1 overflow-y-auto px-6 py-8 sm:px-10 lg:px-14">
-        <div className="mx-auto flex max-w-6xl flex-col space-y-8 pb-10">
+      <main className="flex-1 overflow-y-auto px-4 py-8 sm:px-8 lg:ml-80 lg:px-12">
+        <div className="mx-auto flex w-full max-w-6xl flex-col space-y-8 pb-12">
           <div className="lg:hidden">
-            <div className="rounded-3xl bg-slate-950 px-6 py-5 text-slate-100 shadow-card">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <p className="text-lg font-semibold tracking-tight">Misincol</p>
+            <div className="rounded-3xl border border-white/40 bg-gradient-to-r from-brand-700 via-brand-600 to-brand-500 px-5 py-5 text-sand-50 shadow-soft">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/70">
+                    Misincol
+                  </p>
+                  <p className="text-xl font-semibold leading-tight text-white">
+                    Gestión de equipos con calidez profesional
+                  </p>
                   {user ? (
-                    <p className="text-xs text-slate-400">
+                    <p className="text-xs font-medium text-white/70">
                       Sesión: {user.username}
                       {user.role === "leader" && user.teamId ? ` · Equipo ${user.teamId}` : ""}
                     </p>
@@ -164,14 +201,14 @@ export default function LayoutShell({ children }: Props) {
                     logout();
                     router.push("/login");
                   }}
-                  className="inline-flex items-center justify-center rounded-xl border border-slate-600/40 px-4 py-2 text-xs font-semibold text-slate-100 transition hover:bg-slate-800"
+                  className="inline-flex items-center justify-center rounded-2xl border border-white/30 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white transition hover:bg-white/15"
                 >
                   Cerrar sesión
                 </button>
               </div>
-              <div className="mt-4 flex gap-2 overflow-x-auto">
+              <div className="mt-5 flex gap-2 overflow-x-auto pb-2">
                 {renderNavLinks(
-                  "whitespace-nowrap rounded-2xl bg-slate-900 px-4 py-2 text-xs font-semibold text-slate-300 transition hover:bg-slate-800"
+                  "whitespace-nowrap rounded-2xl border border-white/15 bg-white/10 px-4 py-2 text-xs font-semibold text-white/80 transition hover:bg-white/20"
                 )}
               </div>
             </div>

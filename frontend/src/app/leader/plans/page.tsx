@@ -12,10 +12,10 @@ export default async function LeaderPlans({ searchParams }: Props) {
   if (!team) {
     return (
       <section className="space-y-4">
-        <h1 className="text-3xl font-semibold tracking-tight text-slate-900">
+        <h1 className="text-3xl font-semibold tracking-tight text-cocoa-900">
           Sin información de equipo
         </h1>
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-cocoa-600">
           Revisa que el usuario tenga asociado un equipo en los datos de ejemplo.
         </p>
       </section>
@@ -25,12 +25,17 @@ export default async function LeaderPlans({ searchParams }: Props) {
   const pastPlans = team.plans.filter((plan) => plan.status !== "Activo");
 
   return (
-    <section className="space-y-6">
+    <section className="space-y-7">
       <header className="space-y-3">
-        <h1 className="text-3xl font-semibold tracking-tight text-slate-900">
-          Historial de planes · {team.name}
-        </h1>
-        <p className="max-w-2xl text-sm leading-6 text-slate-500">
+        <div className="space-y-2">
+          <p className="text-xs font-semibold uppercase tracking-[0.35em] text-brand-500">
+            Aprendizajes
+          </p>
+          <h1 className="text-3xl font-semibold tracking-tight text-cocoa-900">
+            Historial de planes · {team.name}
+          </h1>
+        </div>
+        <p className="max-w-3xl text-sm leading-6 text-cocoa-600">
           Revisa resultados, aprendizajes y fechas para planear próximos ciclos.
         </p>
       </header>
@@ -39,27 +44,27 @@ export default async function LeaderPlans({ searchParams }: Props) {
         {pastPlans.map((plan) => (
           <div
             key={plan.id}
-            className="rounded-3xl bg-white p-6 shadow-card ring-1 ring-slate-200 transition hover:-translate-y-0.5 hover:shadow-2xl"
+            className="card-elevated transition hover:-translate-y-0.5 hover:shadow-lg hover:shadow-brand-200/40"
           >
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h2 className="text-xl font-semibold text-slate-900">{plan.name}</h2>
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <div className="space-y-1">
+                <h2 className="text-xl font-semibold text-cocoa-900">{plan.name}</h2>
+                <p className="text-xs font-semibold uppercase tracking-wide text-cocoa-500">
                   {plan.startDate} → {plan.endDate}
                 </p>
               </div>
-              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
+              <span className="inline-flex items-center rounded-full border border-sand-200 bg-sand-50/80 px-3 py-1 text-xs font-semibold text-cocoa-600">
                 {plan.status}
               </span>
             </div>
-            <p className="mt-3 text-sm leading-6 text-slate-500">{plan.summary}</p>
-            <p className="mt-2 text-xs font-semibold text-slate-500">
-              Actividades ejecutadas: {plan.activities.length}
+            <p className="mt-4 text-sm leading-6 text-cocoa-600">{plan.summary}</p>
+            <p className="mt-3 inline-flex items-center gap-2 rounded-full border border-brand-200 bg-brand-50/70 px-3 py-1 text-xs font-semibold text-brand-600">
+              <span>Actividades ejecutadas:</span> {plan.activities.length}
             </p>
           </div>
         ))}
         {pastPlans.length === 0 ? (
-          <p className="rounded-3xl border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
+          <p className="rounded-3xl border border-dashed border-sand-200 bg-white/70 p-6 text-center text-sm text-cocoa-500">
             No se han finalizado planes todavía.
           </p>
         ) : null}

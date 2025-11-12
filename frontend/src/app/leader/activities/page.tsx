@@ -14,8 +14,8 @@ export default async function LeaderActivities({ searchParams }: Props) {
   if (!team || !activePlan) {
     return (
       <section className="space-y-4">
-        <h1 className="text-3xl font-semibold tracking-tight text-slate-900">No hay plan activo</h1>
-        <p className="text-sm text-slate-500">
+        <h1 className="text-3xl font-semibold tracking-tight text-cocoa-900">No hay plan activo</h1>
+        <p className="text-sm text-cocoa-600">
           Selecciona un equipo con plan activo para ver y gestionar actividades.
         </p>
       </section>
@@ -23,54 +23,57 @@ export default async function LeaderActivities({ searchParams }: Props) {
   }
 
   return (
-    <section className="space-y-6">
+    <section className="space-y-7">
       <header className="space-y-3">
-        <h1 className="text-3xl font-semibold tracking-tight text-slate-900">
-          Actividades · {activePlan.name}
-        </h1>
-        <p className="max-w-2xl text-sm leading-6 text-slate-500">
+        <div className="space-y-2">
+          <p className="text-xs font-semibold uppercase tracking-[0.35em] text-brand-500">
+            Plan activo
+          </p>
+          <h1 className="text-3xl font-semibold tracking-tight text-cocoa-900">
+            Actividades · {activePlan.name}
+          </h1>
+        </div>
+        <p className="max-w-3xl text-sm leading-6 text-cocoa-600">
           Gestión completa de tareas, presupuesto y seguimiento por áreas. Información tomada del
           plan activo.
         </p>
       </header>
 
-      <div className="overflow-hidden rounded-3xl bg-white shadow-card ring-1 ring-slate-200">
-        <table className="min-w-full divide-y divide-slate-200 text-sm">
-          <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
+      <div className="overflow-hidden rounded-[2rem] border border-white/70 bg-white/85 shadow-soft">
+        <table className="min-w-full divide-y divide-sand-100 text-sm text-cocoa-700">
+          <thead className="bg-sand-50/80 text-xs font-semibold uppercase tracking-wide text-cocoa-500">
             <tr>
-              <th className="px-6 py-3 text-left">Actividad</th>
-              <th className="px-6 py-3 text-left">Responsable</th>
-              <th className="px-6 py-3 text-left">Área</th>
-              <th className="px-6 py-3 text-left">Estado</th>
-              <th className="px-6 py-3 text-left">Presupuesto</th>
-              <th className="px-6 py-3 text-left">Planificación</th>
+              <th className="px-6 py-4 text-left">Actividad</th>
+              <th className="px-6 py-4 text-left">Responsable</th>
+              <th className="px-6 py-4 text-left">Área</th>
+              <th className="px-6 py-4 text-left">Estado</th>
+              <th className="px-6 py-4 text-left">Presupuesto</th>
+              <th className="px-6 py-4 text-left">Planificación</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100 bg-white">
+          <tbody className="divide-y divide-sand-100 bg-white/60">
             {activities.map((activity) => (
-              <tr key={activity.id} className="transition hover:bg-slate-50">
+              <tr key={activity.id} className="transition hover:bg-brand-50/40">
                 <td className="px-6 py-4">
-                  <div className="text-sm font-semibold text-slate-900">{activity.name}</div>
-                  <p className="mt-1 text-xs text-slate-500">{activity.objective}</p>
+                  <div className="text-sm font-semibold text-cocoa-900">{activity.name}</div>
+                  <p className="mt-1 text-xs text-cocoa-500">{activity.objective}</p>
                 </td>
-                <td className="px-6 py-4 text-slate-600">{activity.responsable}</td>
-                <td className="px-6 py-4 text-slate-600">{activity.area}</td>
+                <td className="px-6 py-4 text-cocoa-600">{activity.responsable}</td>
+                <td className="px-6 py-4 text-cocoa-600">{activity.area}</td>
                 <td className="px-6 py-4">
                   <span
-                    className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${
+                    className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${
                       activity.status === "Hecha"
-                        ? "bg-emerald-100 text-emerald-700"
-                        : "bg-amber-100 text-amber-700"
+                        ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                        : "border-amber-200 bg-amber-50 text-amber-700"
                     }`}
                   >
                     {activity.status}
                   </span>
-                  <div className="mt-1 text-xs font-semibold text-slate-500">
-                    {activity.stage}
-                  </div>
+                  <div className="mt-1 text-xs font-semibold text-cocoa-500">{activity.stage}</div>
                 </td>
-                <td className="px-6 py-4 text-slate-600">
-                  <div className="text-xs font-semibold text-slate-600">
+                <td className="px-6 py-4 text-cocoa-600">
+                  <div className="text-xs font-semibold text-cocoa-600">
                     Total:{" "}
                     {activity.budgetTotal.toLocaleString("es-CO", {
                       style: "currency",
@@ -87,10 +90,10 @@ export default async function LeaderActivities({ searchParams }: Props) {
                     })}
                   </div>
                 </td>
-                <td className="px-6 py-4 text-slate-600">
-                  <div className="text-xs font-semibold">{activity.startDate}</div>
-                  <div className="text-xs text-slate-500">{activity.endDate}</div>
-                  <div className="mt-1 text-xs text-slate-500">
+                <td className="px-6 py-4 text-cocoa-600">
+                  <div className="text-xs font-semibold text-cocoa-700">{activity.startDate}</div>
+                  <div className="text-xs text-cocoa-500">{activity.endDate}</div>
+                  <div className="mt-1 text-xs text-cocoa-500">
                     Frecuencia: {activity.frequency} · {activity.timesPerYear} veces/año
                   </div>
                 </td>
