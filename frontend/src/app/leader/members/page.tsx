@@ -26,19 +26,10 @@ export default async function LeaderMembers({ searchParams }: Props) {
 
   return (
     <section className="space-y-7">
-      <header className="space-y-3">
-        <div className="space-y-2">
-          <p className="text-xs font-semibold uppercase tracking-[0.35em] text-brand-500">
-            Equipo
-          </p>
-          <h1 className="text-3xl font-semibold tracking-tight text-cocoa-900">
-            Gestión de miembros · {team.name}
-          </h1>
-        </div>
-        <p className="max-w-3xl text-sm leading-6 text-cocoa-600">
-          Administra roles, miembros invitados y asignaciones por actividad. Esta vista simula el
-          gestor completo, usando datos mock.
-        </p>
+      <header className="space-y-2">
+        <h1 className="text-3xl font-semibold tracking-tight text-cocoa-900">
+          Gestión de miembros
+        </h1>
       </header>
 
       <MembersList team={team} activePlan={activePlan} />

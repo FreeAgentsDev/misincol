@@ -7,9 +7,15 @@ interface ModalProps {
   onClose: () => void;
   title: string;
   children: ReactNode;
+  size?: "small" | "medium" | "large";
 }
 
-export function Modal({ isOpen, onClose, title, children }: ModalProps) {
+export function Modal({ isOpen, onClose, title, children, size = "medium" }: ModalProps) {
+  const sizeClasses = {
+    small: "max-w-md",
+    medium: "max-w-2xl",
+    large: "max-w-4xl"
+  };
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = "hidden";
@@ -48,7 +54,7 @@ export function Modal({ isOpen, onClose, title, children }: ModalProps) {
         aria-hidden="true"
       />
       <div
-        className="relative z-50 w-full max-w-2xl rounded-2xl border border-sand-300/50 bg-white p-0 shadow-[0_20px_60px_-12px_rgba(0,0,0,0.25)] overflow-hidden"
+        className={`relative z-50 w-full ${sizeClasses[size]} rounded-2xl border border-sand-300/50 bg-white p-0 shadow-[0_20px_60px_-12px_rgba(0,0,0,0.25)] overflow-hidden`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header con fondo sólido */}

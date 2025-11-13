@@ -49,16 +49,11 @@ export function LeaderPlanDetailViewClient({ plan, team, teamId }: Props) {
   return (
     <>
       <section className="space-y-9">
-        <header className="space-y-3">
+        <header className="space-y-2">
           <div className="flex items-center justify-between">
-            <div className="space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-[0.35em] text-brand-500">
-                PLAN DE DESARROLLO MINISTERIAL (PDM)
-              </p>
-              <h1 className="text-3xl font-semibold tracking-tight text-cocoa-900">
-                {plan.name}
-              </h1>
-            </div>
+            <h1 className="text-3xl font-semibold tracking-tight text-cocoa-900">
+              {plan.name}
+            </h1>
             <Link
               href={`/leader/dashboard?team=${teamId}`}
               className="inline-flex items-center gap-2 text-sm font-semibold text-brand-600 transition hover:text-brand-500"

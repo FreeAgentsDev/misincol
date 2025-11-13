@@ -15,6 +15,15 @@ const categories: PlanCategory[] = [
   "Autocuidado"
 ];
 
+// Mapeo de categorías a slugs para URLs
+const categorySlugMap: Record<PlanCategory, string> = {
+  "Investigación": "investigacion",
+  "Encarnación": "encarnacion",
+  "Evangelización": "evangelizacion",
+  "Entrenamiento": "entrenamiento",
+  "Autocuidado": "autocuidado"
+};
+
 interface Props {
   searchParams?: Record<string, string | string[] | undefined>;
 }
@@ -52,33 +61,24 @@ export default async function LeaderDashboard({ searchParams }: Props) {
 
   return (
     <section className="space-y-8">
-      <header className="space-y-3">
-        <div className="space-y-2">
-          <p className="text-xs font-semibold uppercase tracking-[0.35em] text-brand-500">
-            Vista líder
-          </p>
-          <h1 className="text-3xl font-semibold tracking-tight text-cocoa-900">
-            Dashboard de {team.name}
-          </h1>
-        </div>
-        <p className="max-w-3xl text-sm leading-6 text-cocoa-600">
-          Seguimiento rápido del plan activo, actividades y presupuesto disponible del equipo.
-          Role view: líder.
-        </p>
-        <div className="flex flex-wrap gap-2 text-xs font-semibold text-brand-700">
-          <span className="rounded-full border border-brand-200 bg-brand-50/70 px-3 py-1 text-brand-700">
-            Líder: {team.leader}
-          </span>
-          <span className="rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1 text-emerald-600">
-            Presupuesto disponible:{" "}
-            {(team.budgetAssigned - team.budgetLiquidated).toLocaleString("es-CO", {
-              style: "currency",
-              currency: "COP",
-              maximumFractionDigits: 0
-            })}
-          </span>
-        </div>
+      <header className="space-y-2">
+        <h1 className="text-3xl font-semibold tracking-tight text-cocoa-900">
+          Equipo {team.name}
+        </h1>
       </header>
+      <div className="flex flex-wrap gap-2 text-xs font-semibold text-brand-700">
+        <span className="rounded-full border border-brand-200 bg-brand-50/70 px-3 py-1 text-brand-700">
+          Líder: {team.leader}
+        </span>
+        <span className="rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1 text-emerald-600">
+          Presupuesto disponible:{" "}
+          {(team.budgetAssigned - team.budgetLiquidated).toLocaleString("es-CO", {
+            style: "currency",
+            currency: "COP",
+            maximumFractionDigits: 0
+          })}
+        </span>
+      </div>
 
       <div className="space-y-7">
         {/* Información del equipo */}
@@ -99,16 +99,25 @@ export default async function LeaderDashboard({ searchParams }: Props) {
             <span className="pointer-events-none absolute -right-12 top-1/2 hidden h-40 w-40 -translate-y-1/2 rounded-full bg-brand-200/40 blur-3xl lg:block" />
             <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
               <div className="space-y-3">
-                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-brand-500">
-                  Plan activo
-                </p>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-semibold uppercase tracking-[0.3em] text-brand-500">
+                    Plan activo
+                  </p>
+                  <Link
+                    href={`/leader/plans-list?team=${teamId}`}
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-cocoa-600 transition hover:text-brand-600"
+                  >
+                    <span>Ver todos los planes</span>
+                    <span>→</span>
+                  </Link>
+                </div>
                 <div className="flex items-center gap-3">
                   <h2 className="text-2xl font-semibold text-cocoa-900">{activePlan.name}</h2>
                   <Link
                     href={`/leader/plans/${activePlan.id}?team=${teamId}`}
                     className="inline-flex items-center gap-1 text-xs font-semibold text-brand-600 transition hover:text-brand-500"
                   >
-                    <span>Ver vista general</span>
+                    <span>Ver detalle</span>
                     <span>→</span>
                   </Link>
                 </div>
@@ -130,7 +139,28 @@ export default async function LeaderDashboard({ searchParams }: Props) {
               </div>
             </div>
           </div>
-        ) : null}
+        ) : (
+          <div className="card-elevated">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-brand-500">
+                  Plan activo
+                </p>
+                <h2 className="text-xl font-semibold text-cocoa-900">No hay plan activo</h2>
+                <p className="text-sm text-cocoa-600">
+                  No se ha configurado un plan activo para este equipo.
+                </p>
+              </div>
+              <Link
+                href={`/leader/plans-list?team=${teamId}`}
+                className="inline-flex items-center gap-2 rounded-2xl border border-brand-200 bg-brand-50/70 px-4 py-2 text-sm font-semibold text-brand-700 transition hover:bg-brand-100 hover:text-brand-800"
+              >
+                <span>Ver todos los planes</span>
+                <span>→</span>
+              </Link>
+            </div>
+          </div>
+        )}
 
         {/* Próximas actividades y miembros */}
         {activePlan && (
@@ -239,13 +269,18 @@ export default async function LeaderDashboard({ searchParams }: Props) {
             </div>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {categories.map((category) => {
-                // Calcular presupuesto por categoría
-                const categoryBudget = activePlan.category === category
-                  ? activePlan.activities.reduce((sum, act) => sum + act.budgetTotal, 0)
-                  : 0;
-                const categoryLiquidated = activePlan.category === category
-                  ? activePlan.activities.reduce((sum, act) => sum + act.budgetLiquidated, 0)
-                  : 0;
+                // Calcular presupuesto por categoría (área de la actividad)
+                const categoryActivities = activePlan.activities.filter(
+                  (a) => a.area === category || (!a.area && activePlan.category === category)
+                );
+                const categoryBudget = categoryActivities.reduce(
+                  (sum, act) => sum + act.budgetTotal,
+                  0
+                );
+                const categoryLiquidated = categoryActivities.reduce(
+                  (sum, act) => sum + act.budgetLiquidated,
+                  0
+                );
 
                 return (
                   <div
@@ -307,16 +342,20 @@ export default async function LeaderDashboard({ searchParams }: Props) {
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold text-cocoa-900">Tareas por categoría</h2>
               <Link
-                href={`/leader/plans/${activePlan.id}?team=${teamId}`}
-                className="rounded-full border border-sand-200 bg-sand-50/80 px-3 py-1 text-xs font-semibold text-cocoa-600 transition hover:border-brand-200 hover:bg-brand-50/70 hover:text-brand-600"
+                href={`/leader/plans-list?team=${teamId}`}
+                className="rounded-full border border-brand-200 bg-brand-50/70 px-3 py-1 text-xs font-semibold text-brand-600 transition hover:bg-brand-100 hover:text-brand-700"
               >
-                Plan activo
+                Ver todos los planes
               </Link>
             </div>
             <div className="mt-6 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
               {categories.map((category) => {
-                const categoryActivities =
-                  activePlan?.category === category ? activePlan.activities : [];
+                // Filtrar actividades por área (categoría) de la actividad, o por categoría del plan si no tiene área
+                const categoryActivities = activePlan
+                  ? activePlan.activities.filter(
+                      (a) => a.area === category || (!a.area && activePlan.category === category)
+                    )
+                  : [];
 
                 const doneCount = categoryActivities.filter((a) => a.status === "Hecha").length;
                 const pendingCount = categoryActivities.filter(
@@ -324,9 +363,10 @@ export default async function LeaderDashboard({ searchParams }: Props) {
                 ).length;
 
                 return (
-                  <div
+                  <Link
                     key={category}
-                    className="rounded-2xl border border-sand-200 bg-white/80 p-5 transition hover:border-brand-200 hover:bg-brand-50/60"
+                    href={`/leader/category/${categorySlugMap[category]}?team=${teamId}`}
+                    className="block rounded-2xl border border-sand-200 bg-white/80 p-5 transition hover:border-brand-200 hover:bg-brand-50/60"
                   >
                     <div className="flex items-center justify-between">
                       <h3 className="text-base font-semibold text-cocoa-900">{category}</h3>
@@ -374,7 +414,7 @@ export default async function LeaderDashboard({ searchParams }: Props) {
                         </p>
                       )}
                     </div>
-                  </div>
+                  </Link>
                 );
               })}
             </div>

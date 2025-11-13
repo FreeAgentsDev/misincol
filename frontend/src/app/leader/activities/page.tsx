@@ -24,19 +24,10 @@ export default async function LeaderActivities({ searchParams }: Props) {
 
   return (
     <section className="space-y-7">
-      <header className="space-y-3">
-        <div className="space-y-2">
-          <p className="text-xs font-semibold uppercase tracking-[0.35em] text-brand-500">
-            Plan activo
-          </p>
-          <h1 className="text-3xl font-semibold tracking-tight text-cocoa-900">
-            Actividades · {activePlan.name}
-          </h1>
-        </div>
-        <p className="max-w-3xl text-sm leading-6 text-cocoa-600">
-          Gestión completa de tareas, presupuesto y seguimiento por áreas. Información tomada del
-          plan activo.
-        </p>
+      <header className="space-y-2">
+        <h1 className="text-3xl font-semibold tracking-tight text-cocoa-900">
+          Actividades
+        </h1>
       </header>
 
       <div className="overflow-hidden rounded-[2rem] border border-white/70 bg-white/85 shadow-soft">

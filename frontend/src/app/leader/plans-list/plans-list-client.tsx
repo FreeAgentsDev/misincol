@@ -25,19 +25,10 @@ export function LeaderPlansListClient({ plans, team, teamId }: Props) {
   return (
     <>
       <section className="space-y-9">
-        <header className="space-y-3">
-          <div className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-[0.35em] text-brand-500">
-              Gestión de planes
-            </p>
-            <h1 className="text-3xl font-semibold tracking-tight text-cocoa-900">
-              Planes de desarrollo · {team.name}
-            </h1>
-          </div>
-          <p className="max-w-3xl text-sm leading-6 text-cocoa-600">
-            Consulta todos los planes de desarrollo de tu equipo. Haz clic en cualquier plan para
-            ver la vista completa con todos los detalles.
-          </p>
+        <header className="space-y-2">
+          <h1 className="text-3xl font-semibold tracking-tight text-cocoa-900">
+            Planes de desarrollo
+          </h1>
         </header>
 
         <div className="space-y-8">

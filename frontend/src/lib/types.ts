@@ -1,22 +1,33 @@
 export type ActivityStatus = "Hecha" | "Pendiente";
 
+export type ActivityStage = "Contacto" | "Comunicar";
+
 export interface Member {
   name: string;
   role: string;
+}
+
+export interface AreaObjective {
+  id: string;
+  planId: string;
+  category: PlanCategory;
+  description: string;
+  order: number;
 }
 
 export interface Activity {
   id: string;
   teamId: string;
   planId: string;
+  objectiveId?: string;
   name: string;
   responsable: string;
   budgetTotal: number;
   budgetLiquidated: number;
   status: ActivityStatus;
-  stage: string;
+  stage: ActivityStage | string;
   area: string;
-  objective: string;
+  objective: string; // Mantenemos por compatibilidad, pero usamos objectiveId
   description: string;
   currentSituation: string;
   goalMid: string;
@@ -48,6 +59,7 @@ export interface DevelopmentPlan {
   startDate: string;
   endDate: string;
   summary: string;
+  objectives?: AreaObjective[];
   activities: Activity[];
 }
 

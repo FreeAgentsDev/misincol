@@ -27,18 +27,10 @@ export default async function LeaderPlans({ searchParams }: Props) {
 
   return (
     <section className="space-y-7">
-      <header className="space-y-3">
-        <div className="space-y-2">
-          <p className="text-xs font-semibold uppercase tracking-[0.35em] text-brand-500">
-            Aprendizajes
-          </p>
-          <h1 className="text-3xl font-semibold tracking-tight text-cocoa-900">
-            Historial de planes · {team.name}
-          </h1>
-        </div>
-        <p className="max-w-3xl text-sm leading-6 text-cocoa-600">
-          Revisa resultados, aprendizajes y fechas para planear próximos ciclos.
-        </p>
+      <header className="space-y-2">
+        <h1 className="text-3xl font-semibold tracking-tight text-cocoa-900">
+          Historial de planes
+        </h1>
       </header>
 
       <div className="space-y-4">
