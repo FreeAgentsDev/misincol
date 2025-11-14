@@ -7,24 +7,24 @@ Este documento contiene diagramas visuales de la estructura completa de la base 
 ```mermaid
 erDiagram
     auth_users ||--o| profiles : "tiene"
-    profiles ||--o| teams : "lidera"
-    profiles ||--o{ team_members : "es_miembro"
-    teams ||--o{ team_members : "tiene"
-    teams ||--|| team_metrics : "tiene"
-    teams ||--o{ development_plans : "tiene"
-    teams ||--o{ activities : "tiene"
-    teams ||--o{ budget_allocations : "tiene"
-    development_plans ||--o{ area_objectives : "tiene"
-    development_plans ||--o{ activities : "contiene"
-    development_plans ||--o{ plan_history : "registra"
-    development_plans ||--o{ plan_lessons : "tiene"
-    area_objectives ||--o{ activities : "relaciona"
-    activities ||--o{ activity_assignments : "asigna"
-    activities ||--o{ activity_updates : "actualiza"
-    profiles ||--o{ activity_assignments : "asignado"
-    profiles ||--o{ activity_updates : "crea"
-    profiles ||--o{ plan_history : "modifica"
-    profiles ||--o{ plan_lessons : "escribe"
+    perfiles ||--o| teams : "lidera"
+    perfiles ||--o{ team_members : "es_miembro"
+    equipos ||--o{ team_members : "tiene"
+    equipos ||--|| team_metrics : "tiene"
+    equipos ||--o{ development_plans : "tiene"
+    equipos ||--o{ activities : "tiene"
+    equipos ||--o{ budget_allocations : "tiene"
+    planes_desarrollo ||--o{ area_objectives : "tiene"
+    planes_desarrollo ||--o{ activities : "contiene"
+    planes_desarrollo ||--o{ plan_history : "registra"
+    planes_desarrollo ||--o{ plan_lessons : "tiene"
+    objetivos_area ||--o{ activities : "relaciona"
+    actividades ||--o{ activity_assignments : "asigna"
+    actividades ||--o{ activity_updates : "actualiza"
+    perfiles ||--o{ activity_assignments : "asignado"
+    perfiles ||--o{ activity_updates : "crea"
+    perfiles ||--o{ plan_history : "modifica"
+    perfiles ||--o{ plan_lessons : "escribe"
 
     auth_users {
         uuid id PK
@@ -32,7 +32,7 @@ erDiagram
         jsonb raw_user_meta_data
     }
 
-    profiles {
+    perfiles {
         uuid id PK "FK -> auth.users"
         string username UK
         string full_name
@@ -42,7 +42,7 @@ erDiagram
         timestamp updated_at
     }
 
-    teams {
+    equipos {
         uuid id PK
         string name
         uuid leader_id FK "FK -> profiles"
@@ -51,7 +51,7 @@ erDiagram
         timestamp updated_at
     }
 
-    team_members {
+    miembros_equipo {
         uuid id PK
         uuid team_id FK "FK -> teams"
         uuid profile_id FK "FK -> profiles"
@@ -61,7 +61,7 @@ erDiagram
         timestamp updated_at
     }
 
-    team_metrics {
+    metricas_equipo {
         uuid id PK
         uuid team_id FK "FK -> teams (UNIQUE)"
         integer population
@@ -95,7 +95,7 @@ erDiagram
         timestamp updated_at
     }
 
-    development_plans {
+    planes_desarrollo {
         uuid id PK
         uuid team_id FK "FK -> teams"
         string name
@@ -108,7 +108,7 @@ erDiagram
         timestamp updated_at
     }
 
-    area_objectives {
+    objetivos_area {
         uuid id PK
         uuid plan_id FK "FK -> development_plans"
         enum category "Investigación|Encarnación|Evangelización|Entrenamiento|Autocuidado"
@@ -118,7 +118,7 @@ erDiagram
         timestamp updated_at
     }
 
-    activities {
+    actividades {
         uuid id PK
         uuid team_id FK "FK -> teams"
         uuid plan_id FK "FK -> development_plans"
@@ -146,7 +146,7 @@ erDiagram
         timestamp updated_at
     }
 
-    activity_assignments {
+    asignaciones_actividad {
         uuid id PK
         uuid activity_id FK "FK -> activities"
         uuid profile_id FK "FK -> profiles"
@@ -154,7 +154,7 @@ erDiagram
         timestamp created_at
     }
 
-    activity_updates {
+    actualizaciones_actividad {
         uuid id PK
         uuid activity_id FK "FK -> activities"
         uuid profile_id FK "FK -> profiles"
@@ -162,7 +162,7 @@ erDiagram
         timestamp created_at
     }
 
-    budget_allocations {
+    asignaciones_presupuesto {
         uuid id PK
         uuid team_id FK "FK -> teams"
         uuid plan_id FK "FK -> development_plans (nullable)"
@@ -172,7 +172,7 @@ erDiagram
         timestamp updated_at
     }
 
-    plan_history {
+    historial_plan {
         uuid id PK
         uuid plan_id FK "FK -> development_plans"
         uuid changed_by FK "FK -> profiles"
@@ -183,7 +183,7 @@ erDiagram
         timestamp created_at
     }
 
-    plan_lessons {
+    lecciones_plan {
         uuid id PK
         uuid plan_id FK "FK -> development_plans"
         text lesson_text
