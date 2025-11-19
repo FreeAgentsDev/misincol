@@ -1,11 +1,6 @@
 import Link from "next/link";
 import { loadTeams } from "@/lib/mock-data";
 import { PlanCategory } from "@/lib/types";
-import { MembersSection } from "@/components/ui/members-section";
-import { EditableMetricsSection } from "@/components/ui/editable-metrics-section";
-import { EditableTeamInfo } from "@/components/ui/editable-team-info";
-import { EditableStages } from "@/components/ui/editable-stages";
-import { EditableEcclesial } from "@/components/ui/editable-ecclesial";
 
 const categories: PlanCategory[] = [
   "Investigación",
@@ -14,15 +9,6 @@ const categories: PlanCategory[] = [
   "Entrenamiento",
   "Autocuidado"
 ];
-
-// Mapeo de categorías a slugs para URLs
-const categorySlugMap: Record<PlanCategory, string> = {
-  "Investigación": "investigacion",
-  "Encarnación": "encarnacion",
-  "Evangelización": "evangelizacion",
-  "Entrenamiento": "entrenamiento",
-  "Autocuidado": "autocuidado"
-};
 
 interface Props {
   searchParams?: Record<string, string | string[] | undefined>;
@@ -48,95 +34,155 @@ export default async function LeaderDashboard({ searchParams }: Props) {
     );
   }
 
+  // Calcular estadísticas del plan activo
   const pendingActivities = activePlan?.activities.filter(
     (activity) => activity.status === "Pendiente"
-  );
+  ) || [];
   const doneActivities = activePlan?.activities.filter(
     (activity) => activity.status === "Hecha"
-  );
+  ) || [];
+  const totalActivities = activePlan?.activities.length || 0;
+  const progressPercentage = totalActivities > 0 
+    ? Math.round((doneActivities.length / totalActivities) * 100) 
+    : 0;
 
-  // Agrupar actividades por categoría del plan activo
-  // Nota: En el sistema actual, cada plan tiene una categoría y todas sus actividades
-  // pertenecen a esa categoría. Mostramos todas las categorías pero solo la del plan activo tendrá actividades.
+  // Obtener áreas únicas con actividades
+  const areasWithActivities = activePlan 
+    ? Array.from(new Set(activePlan.activities.map(a => a.area).filter(Boolean)))
+    : [];
+
+  // Calcular alertas/pendientes destacados
+  const upcomingDeadlines = activePlan?.activities
+    .filter(a => a.status === "Pendiente" && a.endDate)
+    .sort((a, b) => new Date(a.endDate).getTime() - new Date(b.endDate).getTime())
+    .slice(0, 3) || [];
+
+  // Obtener todos los planes del equipo
+  const allPlans = team.plans || [];
 
   return (
     <section className="space-y-8">
       <header className="space-y-2">
         <h1 className="text-3xl font-semibold tracking-tight text-cocoa-900">
-          Equipo {team.name}
+          Dashboard - Equipo {team.name}
         </h1>
+        <p className="text-sm text-cocoa-600">
+          Resumen general del estado actual del equipo
+        </p>
       </header>
-      <div className="flex flex-wrap gap-2 text-xs font-semibold text-brand-700">
-        <span className="rounded-full border border-brand-200 bg-brand-50/70 px-3 py-1 text-brand-700">
-          Líder: {team.leader}
-        </span>
-        <span className="rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1 text-emerald-600">
-          Presupuesto disponible:{" "}
-          {(team.budgetAssigned - team.budgetLiquidated).toLocaleString("es-CO", {
-            style: "currency",
-            currency: "COP",
-            maximumFractionDigits: 0
-          })}
-        </span>
-      </div>
 
-      <div className="space-y-7">
-        {/* Información del equipo */}
-        <EditableTeamInfo
-          ministryLocation={team.metrics?.ministryLocation || "No especificado"}
-          leader={team.leader}
-          membersCount={team.members.length}
-        />
-
-        {/* Métricas generales */}
-        {team.metrics && (
-          <EditableMetricsSection metrics={team.metrics} />
-        )}
-
-        {/* Plan activo */}
+      {/* Plan activo - Resumen */}
         {activePlan ? (
-          <div className="card-elevated relative overflow-hidden">
-            <span className="pointer-events-none absolute -right-12 top-1/2 hidden h-40 w-40 -translate-y-1/2 rounded-full bg-brand-200/40 blur-3xl lg:block" />
-            <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
-              <div className="space-y-3">
+        <div className="card-elevated">
+          <div className="space-y-6">
                 <div className="flex items-center justify-between">
+              <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.3em] text-brand-500">
                     Plan activo
                   </p>
+                <h2 className="mt-2 text-2xl font-semibold text-cocoa-900">{activePlan.name}</h2>
+                <p className="mt-1 text-sm text-cocoa-600">{activePlan.summary}</p>
+              </div>
                   <Link
-                    href={`/leader/plans-list?team=${teamId}`}
-                    className="inline-flex items-center gap-1 text-xs font-semibold text-cocoa-600 transition hover:text-brand-600"
+                href={`/leader/plans/${activePlan.id}?team=${teamId}`}
+                className="inline-flex items-center gap-2 rounded-lg border border-brand-200 bg-brand-50/70 px-4 py-2 text-sm font-semibold text-brand-700 transition hover:bg-brand-100"
                   >
-                    <span>Ver todos los planes</span>
+                <span>Ver detalle completo</span>
                     <span>→</span>
                   </Link>
                 </div>
-                <div className="flex items-center gap-3">
-                  <h2 className="text-2xl font-semibold text-cocoa-900">{activePlan.name}</h2>
-                  <Link
-                    href={`/leader/plans/${activePlan.id}?team=${teamId}`}
-                    className="inline-flex items-center gap-1 text-xs font-semibold text-brand-600 transition hover:text-brand-500"
-                  >
-                    <span>Ver detalle</span>
-                    <span>→</span>
-                  </Link>
+
+            {/* Métricas principales */}
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+              <div className="rounded-xl border border-sand-200 bg-white/80 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-cocoa-500">
+                  Áreas asignadas
+                </p>
+                <p className="mt-2 text-2xl font-bold text-cocoa-900">
+                  {areasWithActivities.length}
+                </p>
+              </div>
+              <div className="rounded-xl border border-sand-200 bg-white/80 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-cocoa-500">
+                  Actividades activas
+                </p>
+                <p className="mt-2 text-2xl font-bold text-amber-600">
+                  {pendingActivities.length}
+                </p>
+              </div>
+              <div className="rounded-xl border border-sand-200 bg-white/80 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-cocoa-500">
+                  Actividades completadas
+                </p>
+                <p className="mt-2 text-2xl font-bold text-emerald-600">
+                  {doneActivities.length}
+                </p>
+              </div>
+              <div className="rounded-xl border border-sand-200 bg-white/80 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-cocoa-500">
+                  Progreso general
+                </p>
+                <p className="mt-2 text-2xl font-bold text-brand-600">
+                  {progressPercentage}%
+                </p>
+                <div className="mt-2 h-2 w-full rounded-full bg-sand-200">
+                  <div
+                    className="h-2 rounded-full bg-brand-600 transition-all"
+                    style={{ width: `${progressPercentage}%` }}
+                  />
                 </div>
-                <p className="max-w-2xl text-sm leading-6 text-cocoa-600">{activePlan.summary}</p>
               </div>
-              <div className="flex flex-wrap gap-2 text-xs font-semibold">
-                <span className="rounded-full border border-sand-200 bg-sand-50/70 px-3 py-1 text-cocoa-700">
-                  Periodo: {activePlan.startDate} → {activePlan.endDate}
+            </div>
+
+            {/* Fechas importantes */}
+            <div className="rounded-xl border border-sand-200 bg-sand-50/50 p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-cocoa-500 mb-3">
+                Fechas importantes
+              </p>
+              <div className="flex flex-wrap gap-4 text-sm">
+                <div>
+                  <span className="font-medium text-cocoa-600">Inicio:</span>{" "}
+                  <span className="font-semibold text-cocoa-900">{activePlan.startDate}</span>
+                </div>
+                <div>
+                  <span className="font-medium text-cocoa-600">Fin:</span>{" "}
+                  <span className="font-semibold text-cocoa-900">{activePlan.endDate}</span>
+                </div>
+                <div>
+                  <span className="font-medium text-cocoa-600">Periodo:</span>{" "}
+                  <span className="font-semibold text-cocoa-900">
+                    {activePlan.startDate} → {activePlan.endDate}
                 </span>
-                <span className="rounded-full border border-brand-200 bg-brand-50/80 px-3 py-1 text-brand-600">
-                  Actividades: {activePlan.activities.length}
-                </span>
-                <span className="rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1 text-emerald-600">
-                  Completadas: {doneActivities?.length ?? 0}
-                </span>
-                <span className="rounded-full border border-amber-100 bg-amber-50 px-3 py-1 text-amber-600">
-                  Pendientes: {pendingActivities?.length ?? 0}
-                </span>
+                </div>
               </div>
+            </div>
+
+            {/* Alertas y pendientes destacados */}
+            {upcomingDeadlines.length > 0 && (
+              <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-amber-700 mb-3">
+                  Próximos vencimientos
+                </p>
+                <div className="space-y-2">
+                  {upcomingDeadlines.map((activity) => (
+                    <div
+                      key={activity.id}
+                      className="flex items-center justify-between rounded-lg border border-amber-200 bg-white/80 px-3 py-2"
+                    >
+                      <div>
+                        <p className="text-sm font-semibold text-cocoa-900">{activity.name}</p>
+                        <p className="text-xs text-cocoa-500">
+                          {activity.area} · {activity.responsable}
+                        </p>
+                      </div>
+                      <span className="text-xs font-semibold text-amber-700">
+                        {activity.endDate}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             </div>
           </div>
         ) : (
@@ -150,269 +196,69 @@ export default async function LeaderDashboard({ searchParams }: Props) {
                 <p className="text-sm text-cocoa-600">
                   No se ha configurado un plan activo para este equipo.
                 </p>
-              </div>
-              <Link
-                href={`/leader/plans-list?team=${teamId}`}
-                className="inline-flex items-center gap-2 rounded-2xl border border-brand-200 bg-brand-50/70 px-4 py-2 text-sm font-semibold text-brand-700 transition hover:bg-brand-100 hover:text-brand-800"
-              >
-                <span>Ver todos los planes</span>
-                <span>→</span>
-              </Link>
+            </div>
             </div>
           </div>
         )}
 
-        {/* Próximas actividades y miembros */}
-        {activePlan && (
-          <div className="grid gap-5 xl:grid-cols-2">
-            <div className="card-elevated">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.3em] text-brand-500">
-                    Plan activo
-                  </p>
-                  <h3 className="text-lg font-semibold text-cocoa-900">Próximas actividades</h3>
-                </div>
-                <span className="rounded-full border border-brand-200 bg-brand-50/70 px-3 py-1 text-xs font-semibold text-brand-600">
-                  {pendingActivities?.length ?? 0} pendientes
-                </span>
-              </div>
-              <div className="mt-5 space-y-4">
-                {pendingActivities?.map((activity) => (
-                  <div
-                    key={activity.id}
-                    className="rounded-2xl border border-sand-200 bg-white/80 p-4 transition hover:border-brand-200 hover:bg-brand-50/70"
-                  >
-                    <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                      <div>
-                        <p className="text-base font-semibold text-cocoa-900">{activity.name}</p>
-                        <p className="mt-1 text-xs font-semibold text-cocoa-500">
-                          Responsable: {activity.responsable} · Área {activity.area}
-                        </p>
-                      </div>
-                      <span className="inline-flex items-center justify-center rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-600">
-                        {activity.frequency}
-                      </span>
-                    </div>
-                    <div className="mt-3 flex flex-wrap gap-3 text-xs font-semibold text-cocoa-500">
-                      <span className="rounded-full border border-sand-200 bg-sand-50/80 px-3 py-1">
-                        {activity.startDate} → {activity.endDate}
-                      </span>
-                      <span className="rounded-full border border-brand-200 bg-white/80 px-3 py-1 text-brand-600">
-                        Presupuesto restante:{" "}
-                        {(activity.budgetTotal - activity.budgetLiquidated).toLocaleString("es-CO", {
-                          style: "currency",
-                          currency: "COP",
-                          maximumFractionDigits: 0
-                        })}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-                {pendingActivities?.length === 0 ? (
-                  <p className="rounded-2xl border border-dashed border-sand-200 bg-white/70 p-6 text-center text-sm text-cocoa-500">
-                    No hay actividades pendientes.
-                  </p>
-                ) : null}
-              </div>
-            </div>
-
-            <div className="card-elevated">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.3em] text-brand-500">
-                    Equipo
-                  </p>
-                  <h3 className="text-lg font-semibold text-cocoa-900">Miembros y áreas</h3>
-                </div>
-                <span className="rounded-full border border-sand-200 bg-sand-50/80 px-3 py-1 text-xs font-semibold text-cocoa-600">
-                  {team.members.length} integrantes
-                </span>
-              </div>
-              <MembersSection
-                members={team.members}
-                activities={activePlan.activities}
-                teamId={teamId}
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Etapas de desarrollo */}
-        {team.metrics && (
-          <EditableStages metrics={team.metrics} />
-        )}
-
-
-        {/* Desarrollo eclesial */}
-        {team.metrics && (
-          <EditableEcclesial metrics={team.metrics} />
-        )}
-
-        {/* Presupuesto por categoría */}
-        {activePlan && (
+      {/* Accesos rápidos a planes */}
+      {allPlans.length > 0 && (
           <div className="card-elevated">
             <div className="flex items-center justify-between mb-5">
-              <h2 className="text-lg font-semibold text-cocoa-900">Presupuesto por categoría</h2>
-              <div className="flex items-center gap-3">
-                <span className="rounded-full border border-sand-200 bg-sand-50/80 px-3 py-1 text-xs font-semibold text-cocoa-600">
-                  Plan activo
-                </span>
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-2 rounded-2xl border border-brand-200 bg-brand-50/70 px-3 py-1.5 text-xs font-semibold text-brand-700 transition hover:bg-brand-100 hover:text-brand-800"
-                >
-                  <span>✏️</span>
-                  <span>Editar presupuesto</span>
-                </button>
-              </div>
+            <h2 className="text-lg font-semibold text-cocoa-900">Planes del equipo</h2>
+            <Link
+              href={`/leader/plans-list?team=${teamId}`}
+              className="text-sm font-semibold text-brand-600 transition hover:text-brand-500"
+            >
+              Ver todos →
+            </Link>
             </div>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {categories.map((category) => {
-                // Calcular presupuesto por categoría (área de la actividad)
-                const categoryActivities = activePlan.activities.filter(
-                  (a) => a.area === category || (!a.area && activePlan.category === category)
-                );
-                const categoryBudget = categoryActivities.reduce(
-                  (sum, act) => sum + act.budgetTotal,
-                  0
-                );
-                const categoryLiquidated = categoryActivities.reduce(
-                  (sum, act) => sum + act.budgetLiquidated,
-                  0
-                );
+            {allPlans.map((plan) => {
+              const planPending = plan.activities.filter(a => a.status === "Pendiente").length;
+              const planDone = plan.activities.filter(a => a.status === "Hecha").length;
+              const planTotal = plan.activities.length;
+              const planProgress = planTotal > 0 ? Math.round((planDone / planTotal) * 100) : 0;
 
                 return (
-                  <div
-                    key={category}
-                    className="group relative rounded-2xl border border-sand-200 bg-white/80 p-4 transition hover:border-brand-200 hover:bg-brand-50/60"
-                  >
-                    <div className="absolute right-2 top-2 opacity-0 transition group-hover:opacity-100">
-                      <button
-                        type="button"
-                        className="inline-flex items-center justify-center rounded-lg border border-brand-200 bg-white/90 p-1.5 text-xs text-brand-600 transition hover:bg-brand-50"
-                        title={`Editar presupuesto de ${category}`}
-                      >
-                        ✏️
-                      </button>
+                <Link
+                  key={plan.id}
+                  href={`/leader/plans/${plan.id}?team=${teamId}`}
+                  className="block rounded-xl border border-sand-200 bg-white/80 p-5 transition hover:border-brand-200 hover:bg-brand-50/60 hover:shadow-md"
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <h3 className="text-base font-semibold text-cocoa-900 flex-1">{plan.name}</h3>
+                    <span
+                      className={`ml-2 rounded-full px-2.5 py-1 text-xs font-semibold ${
+                        plan.status === "Activo"
+                          ? "bg-brand-50 text-brand-700 border border-brand-200"
+                          : plan.status === "Finalizado"
+                          ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                          : "bg-sand-50 text-cocoa-600 border border-sand-200"
+                      }`}
+                    >
+                      {plan.status}
+                    </span>
                     </div>
-                    <h3 className="text-sm font-semibold text-cocoa-900 mb-3">{category}</h3>
+                  <p className="text-xs text-cocoa-500 mb-3 line-clamp-2">{plan.summary}</p>
                     <div className="space-y-2">
                       <div className="flex items-center justify-between text-xs">
-                        <span className="text-cocoa-500">Total asignado</span>
-                        <span className="font-semibold text-cocoa-700">
-                          {categoryBudget.toLocaleString("es-CO", {
-                            style: "currency",
-                            currency: "COP",
-                            maximumFractionDigits: 0
-                          })}
-                        </span>
+                      <span className="text-cocoa-500">Progreso</span>
+                      <span className="font-semibold text-cocoa-900">{planProgress}%</span>
                       </div>
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-cocoa-500">Liquidado</span>
-                        <span className="font-semibold text-emerald-600">
-                          {categoryLiquidated.toLocaleString("es-CO", {
-                            style: "currency",
-                            currency: "COP",
-                            maximumFractionDigits: 0
-                          })}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-cocoa-500">Restante</span>
-                        <span className="font-semibold text-amber-600">
-                          {(categoryBudget - categoryLiquidated).toLocaleString("es-CO", {
-                            style: "currency",
-                            currency: "COP",
-                            maximumFractionDigits: 0
-                          })}
-                        </span>
-                      </div>
+                    <div className="h-1.5 w-full rounded-full bg-sand-200">
+                      <div
+                        className="h-1.5 rounded-full bg-brand-600 transition-all"
+                        style={{ width: `${planProgress}%` }}
+                      />
                     </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Tareas por categoría */}
-        {activePlan && (
-          <div className="card-elevated">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-cocoa-900">Tareas por categoría</h2>
-              <Link
-                href={`/leader/plans-list?team=${teamId}`}
-                className="rounded-full border border-brand-200 bg-brand-50/70 px-3 py-1 text-xs font-semibold text-brand-600 transition hover:bg-brand-100 hover:text-brand-700"
-              >
-                Ver todos los planes
-              </Link>
-            </div>
-            <div className="mt-6 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-              {categories.map((category) => {
-                // Filtrar actividades por área (categoría) de la actividad, o por categoría del plan si no tiene área
-                const categoryActivities = activePlan
-                  ? activePlan.activities.filter(
-                      (a) => a.area === category || (!a.area && activePlan.category === category)
-                    )
-                  : [];
-
-                const doneCount = categoryActivities.filter((a) => a.status === "Hecha").length;
-                const pendingCount = categoryActivities.filter(
-                  (a) => a.status === "Pendiente"
-                ).length;
-
-                return (
-                  <Link
-                    key={category}
-                    href={`/leader/category/${categorySlugMap[category]}?team=${teamId}`}
-                    className="block rounded-2xl border border-sand-200 bg-white/80 p-5 transition hover:border-brand-200 hover:bg-brand-50/60"
-                  >
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-base font-semibold text-cocoa-900">{category}</h3>
-                      <span className="rounded-full border border-brand-200 bg-brand-50/70 px-3 py-1 text-xs font-semibold text-brand-600">
-                        {categoryActivities.length} tareas
-                      </span>
+                    <div className="flex items-center justify-between text-xs font-semibold pt-2">
+                      <span className="text-emerald-600">{planDone} completadas</span>
+                      <span className="text-amber-600">{planPending} pendientes</span>
                     </div>
-                    <div className="mt-4 space-y-2">
-                      <div className="flex items-center justify-between text-xs font-semibold">
-                        <span className="inline-flex items-center gap-2 text-emerald-600">
-                          <span className="h-2 w-2 rounded-full bg-emerald-500/80" />
-                          {doneCount} completadas
-                        </span>
-                        <span className="inline-flex items-center gap-2 text-amber-600">
-                          <span className="h-2 w-2 rounded-full bg-amber-500/80" />
-                          {pendingCount} pendientes
-                        </span>
-                      </div>
-                      {categoryActivities.length > 0 ? (
-                        <div className="mt-4 space-y-2 max-h-48 overflow-y-auto">
-                          {categoryActivities.map((activity) => (
-                            <div
-                              key={activity.id}
-                              className="rounded-xl border border-sand-200 bg-white/90 p-3 text-xs"
-                            >
-                              <p className="font-semibold text-cocoa-900">{activity.name}</p>
-                              <p className="mt-1 text-cocoa-500">
-                                {activity.responsable} · {activity.area}
-                              </p>
-                              <span
-                                className={`mt-2 inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-semibold ${
-                                  activity.status === "Hecha"
-                                    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                                    : "border-amber-200 bg-amber-50 text-amber-700"
-                                }`}
-                              >
-                                {activity.status}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="mt-4 rounded-xl border border-dashed border-sand-200 bg-white/70 p-3 text-center text-xs text-cocoa-500">
-                          Sin tareas en esta categoría
-                        </p>
-                      )}
+                    <div className="text-xs text-cocoa-500 pt-1">
+                      {plan.startDate} → {plan.endDate}
+                    </div>
                     </div>
                   </Link>
                 );
@@ -420,8 +266,6 @@ export default async function LeaderDashboard({ searchParams }: Props) {
             </div>
           </div>
         )}
-      </div>
     </section>
   );
 }
-

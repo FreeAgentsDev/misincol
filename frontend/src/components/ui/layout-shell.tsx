@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ReactNode, Suspense, useEffect, useMemo } from "react";
 import { useAuth } from "@/context/auth-context";
@@ -71,6 +70,7 @@ function LayoutShellContent({ children }: Props) {
       return [
         { label: "Dashboard global", href: "/superadmin/dashboard" },
         { label: "Gestor de equipos", href: "/superadmin/manage" },
+        { label: "Crear equipo", href: "/superadmin/teams/create" },
         { label: "Planes", href: "/superadmin/plans-list" },
         { label: "Historial planes", href: "/superadmin/plans" }
       ];
@@ -120,6 +120,12 @@ function LayoutShellContent({ children }: Props) {
     // Coincidencia exacta
     if (pathnameBase === baseHref) {
       return true;
+    }
+    
+    // Para "Crear equipo/líder", solo activar en la ruta exacta
+    // NO activar en otras rutas de teams como /teams/[teamId]
+    if (baseHref === "/superadmin/teams/create") {
+      return pathnameBase === baseHref;
     }
     
     // Para rutas de categorías (/leader/category/[category])
@@ -181,31 +187,12 @@ function LayoutShellContent({ children }: Props) {
       <aside className="hidden h-screen w-80 flex-col justify-between bg-gradient-to-b from-brand-700 via-brand-800 to-cocoa-900 px-8 py-10 text-sand-50 shadow-2xl shadow-brand-900/30 lg:flex lg:fixed lg:left-0 lg:top-0">
         <div className="space-y-10">
           <div className="space-y-3">
-            <Image
-              src="/Captura_de_pantalla_2025-11-13_122159-removebg-preview.png"
-              alt="Misincol - Misiones indígenas en Colombia"
-              width={200}
-              height={80}
-              className="h-auto w-full max-w-[200px] object-contain brightness-0 invert"
-            />
+            <div className="flex items-center justify-center w-16 h-16 rounded-full bg-white/20 border-2 border-white/30">
+              <span className="text-3xl font-bold text-white">M</span>
+            </div>
             <h1 className="text-3xl font-semibold leading-tight text-white">
               {user?.role === "superadmin" ? "Gestor de equipos" : "Gestor de equipo"}
             </h1>
-            {user ? (
-              <div className="flex flex-col gap-1 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-sand-100/80">
-                <span className="font-semibold text-white">Sesión activa</span>
-                <span>{user.username}</span>
-                {user.role === "leader" && user.teamId ? (
-                  <span className="text-xs uppercase tracking-wide text-sand-100/60">
-                    Equipo {user.teamId}
-                  </span>
-                ) : (
-                  <span className="text-xs uppercase tracking-wide text-sand-100/60">
-                    Rol: Superadministrador
-                  </span>
-                )}
-              </div>
-            ) : null}
           </div>
           <nav className="space-y-1.5">
             {renderNavLinks(
@@ -230,22 +217,12 @@ function LayoutShellContent({ children }: Props) {
             <div className="rounded-3xl border border-white/40 bg-gradient-to-r from-brand-700 via-brand-600 to-brand-500 px-5 py-5 text-sand-50 shadow-soft">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div className="space-y-1">
-                  <Image
-                    src="/Captura_de_pantalla_2025-11-13_122159-removebg-preview.png"
-                    alt="Misincol - Misiones indígenas en Colombia"
-                    width={180}
-                    height={72}
-                    className="h-auto w-full max-w-[180px] object-contain brightness-0 invert"
-                  />
+                  <div className="flex items-center justify-center w-12 h-12 rounded-full bg-white/20 border-2 border-white/30">
+                    <span className="text-2xl font-bold text-white">M</span>
+                  </div>
                   <h1 className="text-xl font-semibold leading-tight text-white">
                     {user?.role === "superadmin" ? "Gestor de equipos" : "Gestor de equipo"}
                   </h1>
-                  {user ? (
-                    <p className="text-xs font-medium text-white/70">
-                      Sesión: {user.username}
-                      {user.role === "leader" && user.teamId ? ` · Equipo ${user.teamId}` : ""}
-                    </p>
-                  ) : null}
                 </div>
                 <button
                   type="button"

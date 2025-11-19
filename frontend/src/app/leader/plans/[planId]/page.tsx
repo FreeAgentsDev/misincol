@@ -25,5 +25,5 @@ export default async function LeaderPlanDetailView({ params, searchParams }: Pro
     notFound();
   }
 
-  return <LeaderPlanDetailViewClient plan={plan} team={team} teamId={teamId} />;
+  return <LeaderPlanDetailViewClient plan={plan as any} team={team} teamId={teamId} />;
 }

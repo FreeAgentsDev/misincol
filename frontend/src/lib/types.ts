@@ -13,6 +13,7 @@ export interface AreaObjective {
   category: PlanCategory;
   description: string;
   order: number;
+  objectiveNumber?: number; // Número del objetivo global
 }
 
 export interface Activity {
@@ -20,12 +21,14 @@ export interface Activity {
   teamId: string;
   planId: string;
   objectiveId?: string;
+  objectiveNumber?: number; // Número del objetivo global al que pertenece
   name: string;
   responsable: string;
   budgetTotal: number;
   budgetLiquidated: number;
   status: ActivityStatus;
   stage: ActivityStage | string;
+  planStage?: string; // Etapa del plan a la que pertenece (ej: "Fase de diagnóstico", "Fase de ejecución")
   area: string;
   objective: string; // Mantenemos por compatibilidad, pero usamos objectiveId
   description: string;
@@ -61,6 +64,7 @@ export interface DevelopmentPlan {
   summary: string;
   objectives?: AreaObjective[];
   activities: Activity[];
+  stages?: string[]; // Etapas del plan (ej: ["Fase de diagnóstico", "Fase de ejecución", "Fase de evaluación", "Fase de cierre"])
 }
 
 export interface TeamMetrics {

@@ -37,7 +37,13 @@ export function PlanActivitiesTable({
               Estado
             </th>
             <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cocoa-500">
-              Etapa
+              Nº Objetivo
+            </th>
+            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cocoa-500">
+              Etapa Plan
+            </th>
+            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cocoa-500">
+              Etapa Actividad
             </th>
             <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-cocoa-500">
               Objetivo
@@ -92,6 +98,24 @@ export function PlanActivitiesTable({
                   >
                     {activity.status}
                   </span>
+                </td>
+                <td className="px-4 py-3 whitespace-nowrap">
+                  {activity.objectiveNumber ? (
+                    <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-brand-100 text-brand-700 text-xs font-bold">
+                      {activity.objectiveNumber}
+                    </span>
+                  ) : (
+                    <span className="text-xs text-cocoa-400">-</span>
+                  )}
+                </td>
+                <td className="px-4 py-3">
+                  {activity.planStage ? (
+                    <span className="text-xs font-medium text-cocoa-700 bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-full">
+                      {activity.planStage}
+                    </span>
+                  ) : (
+                    <span className="text-xs text-cocoa-400">-</span>
+                  )}
                 </td>
                 <td className="px-4 py-3">
                   {activity.stage ? (
