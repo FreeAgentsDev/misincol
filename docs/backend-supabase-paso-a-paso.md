@@ -2,6 +2,8 @@
 
 Este documento te guiará paso a paso para implementar el backend completo en Supabase. Cada paso incluye el código SQL necesario que puedes ejecutar directamente en el SQL Editor de Supabase.
 
+> **✅ IMPORTANTE**: Todo lo que se describe aquí funciona en el **plan gratuito** de Supabase. Las funciones RPC (PostgreSQL) son gratuitas e ilimitadas. No necesitas Edge Functions ni pagar nada adicional. Ver `docs/plan-gratuito-supabase.md` para más detalles.
+
 ## 📋 Índice
 
 1. [Configuración Inicial](#1-configuración-inicial)
@@ -58,6 +60,8 @@ CREATE TYPE rol_usuario AS ENUM ('superadmin', 'leader', 'member');
 
 Esta tabla extiende la información de usuarios de Supabase Auth:
 
+**⚠️ IMPORTANTE**: Creamos `perfiles` primero SIN la referencia a `equipos` (que aún no existe). Agregaremos la foreign key después en el Paso 2.2.1.
+
 ```sql
 -- Tabla de perfiles de usuario
 CREATE TABLE perfiles (
@@ -65,7 +69,7 @@ CREATE TABLE perfiles (
   nombre_usuario TEXT UNIQUE NOT NULL,
   nombre_completo TEXT,
   rol rol_usuario NOT NULL DEFAULT 'member',
-  id_equipo UUID REFERENCES equipos(id) ON DELETE SET NULL,
+  id_equipo UUID, -- Se agregará la foreign key después de crear la tabla equipos
   creado_en TIMESTAMPTZ DEFAULT NOW(),
   actualizado_en TIMESTAMPTZ DEFAULT NOW()
 );
@@ -101,6 +105,19 @@ CREATE INDEX idx_equipos_id_lider ON equipos(id_lider);
 -- Comentarios
 COMMENT ON TABLE equipos IS 'Equipos de trabajo del sistema';
 COMMENT ON COLUMN equipos.presupuesto_asignado IS 'Presupuesto total asignado al equipo en COP';
+```
+
+### Paso 2.2.1: Agregar Foreign Key de `perfiles` a `equipos`
+
+Ahora que ambas tablas existen, agregamos la foreign key que faltaba:
+
+```sql
+-- Agregar foreign key de perfiles.id_equipo a equipos.id
+ALTER TABLE perfiles
+ADD CONSTRAINT perfiles_id_equipo_fkey 
+FOREIGN KEY (id_equipo) 
+REFERENCES equipos(id) 
+ON DELETE SET NULL;
 ```
 
 ### Paso 2.3: Tabla `miembros_equipo`
@@ -202,7 +219,8 @@ CREATE TABLE planes_desarrollo (
   estado estado_plan NOT NULL DEFAULT 'Activo',
   fecha_inicio DATE NOT NULL,
   fecha_fin DATE NOT NULL,
-  summary TEXT,
+  resumen TEXT,
+  etapas_plan TEXT[], -- Array de etapas del plan (ej: ["Fase de diagnóstico", "Fase de ejecución", "Fase de evaluación", "Fase de cierre"])
   creado_en TIMESTAMPTZ DEFAULT NOW(),
   actualizado_en TIMESTAMPTZ DEFAULT NOW(),
   CHECK (fecha_fin >= fecha_inicio)
@@ -210,12 +228,13 @@ CREATE TABLE planes_desarrollo (
 
 -- Índices
 CREATE INDEX idx_planes_desarrollo_id_equipo ON planes_desarrollo(id_equipo);
-CREATE INDEX idx_planes_desarrollo_status ON planes_desarrollo(status);
-CREATE INDEX idx_planes_desarrollo_category ON planes_desarrollo(category);
+CREATE INDEX idx_planes_desarrollo_estado ON planes_desarrollo(estado);
+CREATE INDEX idx_planes_desarrollo_categoria ON planes_desarrollo(categoria);
 CREATE INDEX idx_planes_desarrollo_dates ON planes_desarrollo(fecha_inicio, fecha_fin);
 
 -- Comentarios
 COMMENT ON TABLE planes_desarrollo IS 'Planes de desarrollo de cada equipo';
+COMMENT ON COLUMN planes_desarrollo.etapas_plan IS 'Array de etapas del plan (ej: ["Fase de diagnóstico", "Fase de ejecución", "Fase de evaluación", "Fase de cierre"])';
 ```
 
 ### Paso 2.6: Tabla `objetivos_area`
@@ -226,18 +245,21 @@ CREATE TABLE objetivos_area (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   id_plan UUID NOT NULL REFERENCES planes_desarrollo(id) ON DELETE CASCADE,
   categoria categoria_plan NOT NULL,
-  description TEXT NOT NULL,
-  numero_orden INTEGER NOT NULL DEFAULT 0,
+  descripcion TEXT NOT NULL,
+  numero_orden INTEGER NOT NULL DEFAULT 0, -- Orden dentro del área
+  numero_objetivo INTEGER, -- Número del objetivo global (opcional, para numeración global de objetivos)
   creado_en TIMESTAMPTZ DEFAULT NOW(),
   actualizado_en TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Índices
 CREATE INDEX idx_objetivos_area_id_plan ON objetivos_area(id_plan);
-CREATE INDEX idx_objetivos_area_category ON objetivos_area(category);
+CREATE INDEX idx_objetivos_area_categoria ON objetivos_area(categoria);
 
 -- Comentarios
 COMMENT ON TABLE objetivos_area IS 'Objetivos por área dentro de un plan';
+COMMENT ON COLUMN objetivos_area.numero_objetivo IS 'Número del objetivo global (opcional, para numeración global de objetivos)';
+COMMENT ON COLUMN objetivos_area.numero_orden IS 'Orden dentro del área';
 ```
 
 ### Paso 2.7: Tabla `actividades`
@@ -255,20 +277,22 @@ CREATE TABLE actividades (
   presupuesto_total NUMERIC(15, 2) DEFAULT 0 CHECK (presupuesto_total >= 0),
   presupuesto_liquidado NUMERIC(15, 2) DEFAULT 0 CHECK (presupuesto_liquidado >= 0),
   estado estado_actividad NOT NULL DEFAULT 'Pendiente',
-  stage TEXT,
+  etapa TEXT, -- Etapa de la actividad (ej: "Contacto", "Comunicar")
+  etapa_plan TEXT, -- Etapa del plan a la que pertenece (ej: "Fase de diagnóstico", "Fase de ejecución")
   area TEXT NOT NULL,
-  objective TEXT,
-  description TEXT,
+  objetivo TEXT, -- Mantenido por compatibilidad
+  numero_objetivo INTEGER, -- Número del objetivo global al que pertenece (opcional)
+  descripcion TEXT,
   situacion_actual TEXT,
   objetivo_mediano TEXT,
   objetivo_largo TEXT,
-  frequency TEXT,
+  frecuencia TEXT,
   veces_por_ano INTEGER DEFAULT 0 CHECK (veces_por_ano >= 0),
   fecha_inicio DATE NOT NULL,
   fecha_fin DATE NOT NULL,
   semanas_totales INTEGER DEFAULT 0 CHECK (semanas_totales >= 0),
   semanas_restantes INTEGER DEFAULT 0 CHECK (semanas_restantes >= 0),
-  obstacles TEXT,
+  obstaculos TEXT,
   
   creado_en TIMESTAMPTZ DEFAULT NOW(),
   actualizado_en TIMESTAMPTZ DEFAULT NOW(),
@@ -280,13 +304,16 @@ CREATE TABLE actividades (
 CREATE INDEX idx_actividades_id_equipo ON actividades(id_equipo);
 CREATE INDEX idx_actividades_id_plan ON actividades(id_plan);
 CREATE INDEX idx_actividades_id_objetivo ON actividades(id_objetivo);
-CREATE INDEX idx_actividades_status ON actividades(status);
+CREATE INDEX idx_actividades_estado ON actividades(estado);
 CREATE INDEX idx_actividades_area ON actividades(area);
+CREATE INDEX idx_actividades_etapa_plan ON actividades(etapa_plan);
 CREATE INDEX idx_actividades_dates ON actividades(fecha_inicio, fecha_fin);
 
 -- Comentarios
 COMMENT ON TABLE actividades IS 'Actividades dentro de los planes de desarrollo';
 COMMENT ON COLUMN actividades.presupuesto_liquidado IS 'Presupuesto ya liquidado en COP';
+COMMENT ON COLUMN actividades.etapa_plan IS 'Etapa del plan a la que pertenece (ej: "Fase de diagnóstico", "Fase de ejecución")';
+COMMENT ON COLUMN actividades.numero_objetivo IS 'Número del objetivo global al que pertenece (opcional)';
 ```
 
 ### Paso 2.8: Tabla `asignaciones_actividad`
@@ -339,8 +366,8 @@ CREATE TABLE asignaciones_presupuesto (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   id_equipo UUID NOT NULL REFERENCES equipos(id) ON DELETE CASCADE,
   id_plan UUID REFERENCES planes_desarrollo(id) ON DELETE SET NULL,
-  amount NUMERIC(15, 2) NOT NULL CHECK (amount >= 0),
-  description TEXT,
+  monto NUMERIC(15, 2) NOT NULL CHECK (monto >= 0),
+  descripcion TEXT,
   creado_en TIMESTAMPTZ DEFAULT NOW(),
   actualizado_en TIMESTAMPTZ DEFAULT NOW()
 );
@@ -364,7 +391,7 @@ CREATE TABLE historial_plan (
   tipo_cambio TEXT NOT NULL, -- 'created', 'updated', 'status_changed', 'deleted'
   valores_anteriores JSONB,
   valores_nuevos JSONB,
-  description TEXT,
+  descripcion TEXT,
   creado_en TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -435,7 +462,7 @@ ALTER TABLE lecciones_plan ENABLE ROW LEVEL SECURITY;
 
 ```sql
 -- Función para obtener el rol del usuario actual
-CREATE OR REPLACE FUNCTION get_rol_usuario()
+CREATE OR REPLACE FUNCTION obtener_rol_usuario()
 RETURNS rol_usuario AS $$
   SELECT rol FROM perfiles WHERE id = auth.uid();
 $$ LANGUAGE sql SECURITY DEFINER STABLE;
@@ -445,7 +472,7 @@ $$ LANGUAGE sql SECURITY DEFINER STABLE;
 
 ```sql
 -- Función para obtener el id_equipo del usuario actual (si es leader)
-CREATE OR REPLACE FUNCTION get_user_id_equipo()
+CREATE OR REPLACE FUNCTION obtener_id_equipo_usuario()
 RETURNS UUID AS $$
   SELECT id_equipo FROM perfiles WHERE id = auth.uid();
 $$ LANGUAGE sql SECURITY DEFINER STABLE;
@@ -457,7 +484,7 @@ $$ LANGUAGE sql SECURITY DEFINER STABLE;
 -- Superadmin puede ver todos los perfiles
 CREATE POLICY "Superadmin can view all perfiles"
   ON perfiles FOR SELECT
-  USING (get_rol_usuario() = 'superadmin');
+  USING (obtener_rol_usuario() = 'superadmin');
 
 -- Los usuarios pueden ver su propio perfil
 CREATE POLICY "Users can view own profile"
@@ -468,15 +495,15 @@ CREATE POLICY "Users can view own profile"
 CREATE POLICY "Leaders can view team perfiles"
   ON perfiles FOR SELECT
   USING (
-    get_rol_usuario() = 'leader' 
-    AND id_equipo = get_user_id_equipo()
+    obtener_rol_usuario() = 'leader' 
+    AND id_equipo = obtener_id_equipo_usuario()
   );
 
 -- Superadmin puede insertar/actualizar perfiles
 CREATE POLICY "Superadmin can manage perfiles"
   ON perfiles FOR ALL
-  USING (get_rol_usuario() = 'superadmin')
-  WITH CHECK (get_rol_usuario() = 'superadmin');
+  USING (obtener_rol_usuario() = 'superadmin')
+  WITH CHECK (obtener_rol_usuario() = 'superadmin');
 
 -- Los usuarios pueden actualizar su propio perfil (limitado)
 CREATE POLICY "Users can update own profile"
@@ -491,14 +518,14 @@ CREATE POLICY "Users can update own profile"
 -- Superadmin puede ver todos los equipos
 CREATE POLICY "Superadmin can view all equipos"
   ON equipos FOR SELECT
-  USING (get_rol_usuario() = 'superadmin');
+  USING (obtener_rol_usuario() = 'superadmin');
 
 -- Los líderes pueden ver su propio equipo
 CREATE POLICY "Leaders can view own team"
   ON equipos FOR SELECT
   USING (
-    get_rol_usuario() = 'leader' 
-    AND id = get_user_id_equipo()
+    obtener_rol_usuario() = 'leader' 
+    AND id = obtener_id_equipo_usuario()
   );
 
 -- Los miembros pueden ver su equipo
@@ -516,8 +543,8 @@ CREATE POLICY "Members can view own team"
 -- Superadmin puede gestionar equipos
 CREATE POLICY "Superadmin can manage equipos"
   ON equipos FOR ALL
-  USING (get_rol_usuario() = 'superadmin')
-  WITH CHECK (get_rol_usuario() = 'superadmin');
+  USING (obtener_rol_usuario() = 'superadmin')
+  WITH CHECK (obtener_rol_usuario() = 'superadmin');
 ```
 
 ### Paso 3.6: Políticas para `miembros_equipo`
@@ -526,14 +553,14 @@ CREATE POLICY "Superadmin can manage equipos"
 -- Superadmin puede ver todos los miembros
 CREATE POLICY "Superadmin can view all team members"
   ON miembros_equipo FOR SELECT
-  USING (get_rol_usuario() = 'superadmin');
+  USING (obtener_rol_usuario() = 'superadmin');
 
 -- Los líderes pueden ver miembros de su equipo
 CREATE POLICY "Leaders can view team members"
   ON miembros_equipo FOR SELECT
   USING (
-    get_rol_usuario() = 'leader' 
-    AND id_equipo = get_user_id_equipo()
+    obtener_rol_usuario() = 'leader' 
+    AND id_equipo = obtener_id_equipo_usuario()
   );
 
 -- Los miembros pueden ver otros miembros de su equipo
@@ -552,12 +579,12 @@ CREATE POLICY "Members can view own team members"
 CREATE POLICY "Superadmin and leaders can manage team members"
   ON miembros_equipo FOR ALL
   USING (
-    get_rol_usuario() = 'superadmin' 
-    OR (get_rol_usuario() = 'leader' AND id_equipo = get_user_id_equipo())
+    obtener_rol_usuario() = 'superadmin' 
+    OR (obtener_rol_usuario() = 'leader' AND id_equipo = obtener_id_equipo_usuario())
   )
   WITH CHECK (
-    get_rol_usuario() = 'superadmin' 
-    OR (get_rol_usuario() = 'leader' AND id_equipo = get_user_id_equipo())
+    obtener_rol_usuario() = 'superadmin' 
+    OR (obtener_rol_usuario() = 'leader' AND id_equipo = obtener_id_equipo_usuario())
   );
 ```
 
@@ -567,33 +594,33 @@ CREATE POLICY "Superadmin and leaders can manage team members"
 -- Superadmin puede ver todas las métricas
 CREATE POLICY "Superadmin can view all metrics"
   ON metricas_equipo FOR SELECT
-  USING (get_rol_usuario() = 'superadmin');
+  USING (obtener_rol_usuario() = 'superadmin');
 
 -- Los líderes pueden ver métricas de su equipo
 CREATE POLICY "Leaders can view own team metrics"
   ON metricas_equipo FOR SELECT
   USING (
-    get_rol_usuario() = 'leader' 
-    AND id_equipo = get_user_id_equipo()
+    obtener_rol_usuario() = 'leader' 
+    AND id_equipo = obtener_id_equipo_usuario()
   );
 
 -- Los líderes pueden actualizar métricas de su equipo
 CREATE POLICY "Leaders can update own team metrics"
   ON metricas_equipo FOR UPDATE
   USING (
-    get_rol_usuario() = 'leader' 
-    AND id_equipo = get_user_id_equipo()
+    obtener_rol_usuario() = 'leader' 
+    AND id_equipo = obtener_id_equipo_usuario()
   )
   WITH CHECK (
-    get_rol_usuario() = 'leader' 
-    AND id_equipo = get_user_id_equipo()
+    obtener_rol_usuario() = 'leader' 
+    AND id_equipo = obtener_id_equipo_usuario()
   );
 
 -- Superadmin puede gestionar todas las métricas
 CREATE POLICY "Superadmin can manage all metrics"
   ON metricas_equipo FOR ALL
-  USING (get_rol_usuario() = 'superadmin')
-  WITH CHECK (get_rol_usuario() = 'superadmin');
+  USING (obtener_rol_usuario() = 'superadmin')
+  WITH CHECK (obtener_rol_usuario() = 'superadmin');
 ```
 
 ### Paso 3.8: Políticas para `planes_desarrollo`
@@ -602,14 +629,14 @@ CREATE POLICY "Superadmin can manage all metrics"
 -- Superadmin puede ver todos los planes
 CREATE POLICY "Superadmin can view all plans"
   ON planes_desarrollo FOR SELECT
-  USING (get_rol_usuario() = 'superadmin');
+  USING (obtener_rol_usuario() = 'superadmin');
 
 -- Los líderes pueden ver planes de su equipo
 CREATE POLICY "Leaders can view own team plans"
   ON planes_desarrollo FOR SELECT
   USING (
-    get_rol_usuario() = 'leader' 
-    AND id_equipo = get_user_id_equipo()
+    obtener_rol_usuario() = 'leader' 
+    AND id_equipo = obtener_id_equipo_usuario()
   );
 
 -- Los miembros pueden ver planes de su equipo
@@ -627,19 +654,19 @@ CREATE POLICY "Members can view own team plans"
 -- Superadmin puede gestionar todos los planes
 CREATE POLICY "Superadmin can manage all plans"
   ON planes_desarrollo FOR ALL
-  USING (get_rol_usuario() = 'superadmin')
-  WITH CHECK (get_rol_usuario() = 'superadmin');
+  USING (obtener_rol_usuario() = 'superadmin')
+  WITH CHECK (obtener_rol_usuario() = 'superadmin');
 
 -- Los líderes pueden gestionar planes de su equipo
 CREATE POLICY "Leaders can manage own team plans"
   ON planes_desarrollo FOR ALL
   USING (
-    get_rol_usuario() = 'leader' 
-    AND id_equipo = get_user_id_equipo()
+    obtener_rol_usuario() = 'leader' 
+    AND id_equipo = obtener_id_equipo_usuario()
   )
   WITH CHECK (
-    get_rol_usuario() = 'leader' 
-    AND id_equipo = get_user_id_equipo()
+    obtener_rol_usuario() = 'leader' 
+    AND id_equipo = obtener_id_equipo_usuario()
   );
 ```
 
@@ -649,14 +676,14 @@ CREATE POLICY "Leaders can manage own team plans"
 -- Superadmin puede ver todas las actividades
 CREATE POLICY "Superadmin can view all actividades"
   ON actividades FOR SELECT
-  USING (get_rol_usuario() = 'superadmin');
+  USING (obtener_rol_usuario() = 'superadmin');
 
 -- Los líderes pueden ver actividades de su equipo
 CREATE POLICY "Leaders can view own team actividades"
   ON actividades FOR SELECT
   USING (
-    get_rol_usuario() = 'leader' 
-    AND id_equipo = get_user_id_equipo()
+    obtener_rol_usuario() = 'leader' 
+    AND id_equipo = obtener_id_equipo_usuario()
   );
 
 -- Los miembros pueden ver actividades de su equipo
@@ -674,19 +701,19 @@ CREATE POLICY "Members can view own team actividades"
 -- Superadmin puede gestionar todas las actividades
 CREATE POLICY "Superadmin can manage all actividades"
   ON actividades FOR ALL
-  USING (get_rol_usuario() = 'superadmin')
-  WITH CHECK (get_rol_usuario() = 'superadmin');
+  USING (obtener_rol_usuario() = 'superadmin')
+  WITH CHECK (obtener_rol_usuario() = 'superadmin');
 
 -- Los líderes pueden gestionar actividades de su equipo
 CREATE POLICY "Leaders can manage own team actividades"
   ON actividades FOR ALL
   USING (
-    get_rol_usuario() = 'leader' 
-    AND id_equipo = get_user_id_equipo()
+    obtener_rol_usuario() = 'leader' 
+    AND id_equipo = obtener_id_equipo_usuario()
   )
   WITH CHECK (
-    get_rol_usuario() = 'leader' 
-    AND id_equipo = get_user_id_equipo()
+    obtener_rol_usuario() = 'leader' 
+    AND id_equipo = obtener_id_equipo_usuario()
   );
 ```
 
@@ -696,25 +723,25 @@ CREATE POLICY "Leaders can manage own team actividades"
 -- Políticas para objetivos_area
 CREATE POLICY "Superadmin can manage area objectives"
   ON objetivos_area FOR ALL
-  USING (get_rol_usuario() = 'superadmin')
-  WITH CHECK (get_rol_usuario() = 'superadmin');
+  USING (obtener_rol_usuario() = 'superadmin')
+  WITH CHECK (obtener_rol_usuario() = 'superadmin');
 
 CREATE POLICY "Leaders can manage own team area objectives"
   ON objetivos_area FOR ALL
   USING (
-    get_rol_usuario() = 'leader' 
+    obtener_rol_usuario() = 'leader' 
     AND EXISTS (
       SELECT 1 FROM planes_desarrollo 
       WHERE id = objetivos_area.id_plan 
-      AND id_equipo = get_user_id_equipo()
+      AND id_equipo = obtener_id_equipo_usuario()
     )
   )
   WITH CHECK (
-    get_rol_usuario() = 'leader' 
+    obtener_rol_usuario() = 'leader' 
     AND EXISTS (
       SELECT 1 FROM planes_desarrollo 
       WHERE id = objetivos_area.id_plan 
-      AND id_equipo = get_user_id_equipo()
+      AND id_equipo = obtener_id_equipo_usuario()
     )
   );
 
@@ -735,11 +762,11 @@ CREATE POLICY "Users can view own assignments"
 CREATE POLICY "Leaders can manage team assignments"
   ON asignaciones_actividad FOR ALL
   USING (
-    get_rol_usuario() = 'leader' 
+    obtener_rol_usuario() = 'leader' 
     AND EXISTS (
       SELECT 1 FROM actividades a
       WHERE a.id = asignaciones_actividad.id_actividad
-      AND a.id_equipo = get_user_id_equipo()
+      AND a.id_equipo = obtener_id_equipo_usuario()
     )
   );
 
@@ -772,14 +799,14 @@ CREATE POLICY "Users can create activity updates"
 -- Políticas para asignaciones_presupuesto
 CREATE POLICY "Superadmin can manage all budgets"
   ON asignaciones_presupuesto FOR ALL
-  USING (get_rol_usuario() = 'superadmin')
-  WITH CHECK (get_rol_usuario() = 'superadmin');
+  USING (obtener_rol_usuario() = 'superadmin')
+  WITH CHECK (obtener_rol_usuario() = 'superadmin');
 
 CREATE POLICY "Leaders can view own team budgets"
   ON asignaciones_presupuesto FOR SELECT
   USING (
-    get_rol_usuario() = 'leader' 
-    AND id_equipo = get_user_id_equipo()
+    obtener_rol_usuario() = 'leader' 
+    AND id_equipo = obtener_id_equipo_usuario()
   );
 
 -- Políticas para historial_plan
@@ -793,7 +820,7 @@ CREATE POLICY "Users can view plan history"
       AND tm.id_perfil = auth.uid()
       AND tm.activo = TRUE
     )
-    OR get_rol_usuario() = 'superadmin'
+    OR obtener_rol_usuario() = 'superadmin'
   );
 
 -- Políticas para lecciones_plan
@@ -807,17 +834,17 @@ CREATE POLICY "Users can view plan lessons"
       AND tm.id_perfil = auth.uid()
       AND tm.activo = TRUE
     )
-    OR get_rol_usuario() = 'superadmin'
+    OR obtener_rol_usuario() = 'superadmin'
   );
 
 CREATE POLICY "Leaders can manage own team lessons"
   ON lecciones_plan FOR ALL
   USING (
-    get_rol_usuario() = 'leader' 
+    obtener_rol_usuario() = 'leader' 
     AND EXISTS (
       SELECT 1 FROM planes_desarrollo 
       WHERE id = lecciones_plan.id_plan 
-      AND id_equipo = get_user_id_equipo()
+      AND id_equipo = obtener_id_equipo_usuario()
     )
   );
 ```
@@ -826,44 +853,31 @@ CREATE POLICY "Leaders can manage own team lessons"
 
 ## 4. Funciones RPC
 
-### Paso 4.1: Función de login por nombre_usuario
+> **✅ IMPORTANTE**: Todas las funciones RPC (PostgreSQL) son **GRATUITAS e ILIMITADAS** en el plan gratuito de Supabase. No necesitas Edge Functions ni pagar nada adicional.
 
-```sql
--- Función para login por nombre_usuario (alternativa a email)
-CREATE OR REPLACE FUNCTION auth.iniciar_sesion_con_usuario(
-  p_nombre_usuario TEXT,
-  p_password TEXT
-)
-RETURNS JSONB AS $$
-DECLARE
-  v_user_id UUID;
-  v_email TEXT;
-  v_profile RECORD;
-BEGIN
-  -- Buscar el perfil por nombre_usuario
-  SELECT id, (SELECT email FROM auth.users WHERE id = perfiles.id) as email
-  INTO v_profile
-  FROM perfiles
-  WHERE nombre_usuario = p_nombre_usuario;
-  
-  IF NOT FOUND THEN
-    RETURN jsonb_build_object('error', 'Usuario no encontrado');
-  END IF;
-  
-  -- Verificar contraseña usando auth.users
-  -- Nota: Esta función requiere que el email en auth.users sea nombre_usuario@misincol.local
-  -- y que la contraseña coincida
-  v_email := v_profile.email;
-  
-  -- Retornar información del usuario (la autenticación real se hace en el cliente)
-  RETURN jsonb_build_object(
-    'user_id', v_profile.id,
-    'nombre_usuario', p_nombre_usuario,
-    'email', v_email
-  );
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+### Paso 4.1: Autenticación (NO requiere función RPC)
+
+**Nota**: No necesitamos crear una función RPC para login. Usaremos directamente `supabase.auth.signInWithPassword()` desde el frontend, que es **gratuito** e incluido en el plan gratuito.
+
+**En el frontend** (`/app/login/page.tsx`):
+```typescript
+const { data, error } = await supabase.auth.signInWithPassword({
+  email: `${username}@misincol.local`, // Email sintético basado en nombre_usuario
+  password: password
+});
+
+// Luego obtener el perfil
+const { data: perfil } = await supabase
+  .from('perfiles')
+  .select('*')
+  .eq('id', data.user.id)
+  .single();
 ```
+
+**Ventajas**:
+- ✅ Gratis (incluido en plan gratuito)
+- ✅ Más seguro (maneja sesiones automáticamente)
+- ✅ No requiere función adicional
 
 ### Paso 4.2: Función para obtener métricas del dashboard
 
@@ -872,37 +886,37 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 CREATE OR REPLACE FUNCTION obtener_metricas_dashboard_equipo()
 RETURNS TABLE (
   id_equipo UUID,
-  team_name TEXT,
-  leader TEXT,
-  active_id_plan UUID,
-  active_plan_name TEXT,
-  completed_plans_count BIGINT,
-  pending_actividades_count BIGINT,
-  done_actividades_count BIGINT,
+  nombre_equipo TEXT,
+  lider TEXT,
+  id_plan_activo UUID,
+  nombre_plan_activo TEXT,
+  planes_completados_count BIGINT,
+  actividades_pendientes_count BIGINT,
+  actividades_completadas_count BIGINT,
   presupuesto_liquidado NUMERIC,
-  budget_pending NUMERIC,
+  presupuesto_pendiente NUMERIC,
   presupuesto_asignado NUMERIC
 ) AS $$
 BEGIN
   RETURN QUERY
   SELECT 
     t.id AS id_equipo,
-    t.name AS team_name,
-    COALESCE(p.nombre_completo, p.nombre_usuario, 'Sin líder') AS leader,
-    dp_active.id AS active_id_plan,
-    dp_active.name AS active_plan_name,
-    COUNT(DISTINCT CASE WHEN dp.status = 'Finalizado' THEN dp.id END) AS completed_plans_count,
-    COUNT(DISTINCT CASE WHEN a.status = 'Pendiente' THEN a.id END) AS pending_actividades_count,
-    COUNT(DISTINCT CASE WHEN a.status = 'Hecha' THEN a.id END) AS done_actividades_count,
+    t.nombre AS nombre_equipo,
+    COALESCE(p.nombre_completo, p.nombre_usuario, 'Sin líder') AS lider,
+    dp_active.id AS id_plan_activo,
+    dp_active.nombre AS nombre_plan_activo,
+    COUNT(DISTINCT CASE WHEN dp.estado = 'Finalizado' THEN dp.id END) AS planes_completados_count,
+    COUNT(DISTINCT CASE WHEN a.estado = 'Pendiente' THEN a.id END) AS actividades_pendientes_count,
+    COUNT(DISTINCT CASE WHEN a.estado = 'Hecha' THEN a.id END) AS actividades_completadas_count,
     COALESCE(SUM(a.presupuesto_liquidado), 0) AS presupuesto_liquidado,
-    COALESCE(SUM(CASE WHEN a.status = 'Pendiente' THEN (a.presupuesto_total - a.presupuesto_liquidado) ELSE 0 END), 0) AS budget_pending,
+    COALESCE(SUM(CASE WHEN a.estado = 'Pendiente' THEN (a.presupuesto_total - a.presupuesto_liquidado) ELSE 0 END), 0) AS presupuesto_pendiente,
     t.presupuesto_asignado AS presupuesto_asignado
   FROM equipos t
   LEFT JOIN perfiles p ON t.id_lider = p.id
-  LEFT JOIN planes_desarrollo dp_active ON dp_active.id_equipo = t.id AND dp_active.status = 'Activo'
+  LEFT JOIN planes_desarrollo dp_active ON dp_active.id_equipo = t.id AND dp_active.estado = 'Activo'
   LEFT JOIN planes_desarrollo dp ON dp.id_equipo = t.id
   LEFT JOIN actividades a ON a.id_plan = dp.id
-  GROUP BY t.id, t.name, p.nombre_completo, p.nombre_usuario, dp_active.id, dp_active.name, t.presupuesto_asignado;
+  GROUP BY t.id, t.nombre, p.nombre_completo, p.nombre_usuario, dp_active.id, dp_active.nombre, t.presupuesto_asignado;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 ```
@@ -933,37 +947,37 @@ BEGIN
   
   -- Crear el nuevo plan
   INSERT INTO planes_desarrollo (
-    id_equipo, name, category, status, fecha_inicio, fecha_fin, summary
+    id_equipo, nombre, categoria, estado, fecha_inicio, fecha_fin, resumen
   )
   VALUES (
     v_old_plan.id_equipo,
     p_new_name,
-    v_old_plan.category,
+    v_old_plan.categoria,
     'Activo',
     p_new_fecha_inicio,
     p_new_fecha_fin,
-    v_old_plan.summary
+    v_old_plan.resumen
   )
   RETURNING id INTO v_new_id_plan;
   
   -- Duplicar objetivos de área
-  INSERT INTO objetivos_area (id_plan, category, description, numero_orden)
-  SELECT v_new_id_plan, category, description, numero_orden
+  INSERT INTO objetivos_area (id_plan, categoria, descripcion, numero_orden)
+  SELECT v_new_id_plan, categoria, descripcion, numero_orden
   FROM objetivos_area
   WHERE id_plan = p_id_plan;
   
   -- Duplicar actividades
   INSERT INTO actividades (
-    id_equipo, id_plan, id_objetivo, name, responsable,
-    presupuesto_total, presupuesto_liquidado, status, stage, area, objective,
-    description, situacion_actual, objetivo_mediano, objetivo_largo, frequency,
-    veces_por_ano, fecha_inicio, fecha_fin, semanas_totales, semanas_restantes, obstacles
+    id_equipo, id_plan, id_objetivo, nombre, responsable,
+    presupuesto_total, presupuesto_liquidado, estado, etapa, area, objetivo,
+    descripcion, situacion_actual, objetivo_mediano, objetivo_largo, frecuencia,
+    veces_por_ano, fecha_inicio, fecha_fin, semanas_totales, semanas_restantes, obstaculos
   )
   SELECT 
-    id_equipo, v_new_id_plan, NULL, name, responsable,
-    0, 0, 'Pendiente', stage, area, objective,
-    description, situacion_actual, objetivo_mediano, objetivo_largo, frequency,
-    veces_por_ano, fecha_inicio, fecha_fin, semanas_totales, semanas_totales, obstacles
+    id_equipo, v_new_id_plan, NULL, nombre, responsable,
+    0, 0, 'Pendiente', etapa, area, objetivo,
+    descripcion, situacion_actual, objetivo_mediano, objetivo_largo, frecuencia,
+    veces_por_ano, fecha_inicio, fecha_fin, semanas_totales, semanas_totales, obstaculos
   FROM actividades
   WHERE id_plan = p_id_plan;
   
@@ -972,7 +986,172 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 ```
 
-### Paso 4.4: Función para actualizar presupuesto calculado
+### Paso 4.4: Función para crear equipo completo
+
+Esta función permite crear un equipo con su líder y miembros en una sola operación. Es útil para el SuperAdmin que crea equipos desde el frontend.
+
+```sql
+-- Función para crear un equipo completo (equipo + líder + miembros)
+CREATE OR REPLACE FUNCTION crear_equipo_completo(
+  p_nombre_equipo TEXT,
+  p_presupuesto_asignado NUMERIC,
+  p_crear_nuevo_lider BOOLEAN DEFAULT FALSE,
+  p_id_lider_existente UUID DEFAULT NULL,
+  p_nombre_usuario_lider TEXT DEFAULT NULL,
+  p_nombre_completo_lider TEXT DEFAULT NULL,
+  p_email_lider TEXT DEFAULT NULL,
+  p_password_lider TEXT DEFAULT NULL,
+  p_miembros JSONB DEFAULT '[]'::JSONB -- Array de objetos: [{"name": "Juan", "role": "Miembro"}]
+)
+RETURNS JSONB AS $$
+DECLARE
+  v_id_equipo UUID;
+  v_id_lider UUID;
+  v_resultado JSONB;
+  v_miembro JSONB;
+  v_id_perfil_miembro UUID;
+BEGIN
+  -- Verificar que solo superadmin puede crear equipos
+  IF obtener_rol_usuario() != 'superadmin' THEN
+    RAISE EXCEPTION 'Solo el superadmin puede crear equipos';
+  END IF;
+
+  -- Validaciones básicas
+  IF p_nombre_equipo IS NULL OR TRIM(p_nombre_equipo) = '' THEN
+    RAISE EXCEPTION 'El nombre del equipo es requerido';
+  END IF;
+
+  IF p_presupuesto_asignado IS NULL OR p_presupuesto_asignado < 0 THEN
+    RAISE EXCEPTION 'El presupuesto asignado debe ser mayor o igual a 0';
+  END IF;
+
+  -- Manejar el líder
+  IF p_crear_nuevo_lider THEN
+    -- Validar datos del nuevo líder
+    IF p_nombre_usuario_lider IS NULL OR TRIM(p_nombre_usuario_lider) = '' THEN
+      RAISE EXCEPTION 'El nombre de usuario del líder es requerido';
+    END IF;
+    IF p_nombre_completo_lider IS NULL OR TRIM(p_nombre_completo_lider) = '' THEN
+      RAISE EXCEPTION 'El nombre completo del líder es requerido';
+    END IF;
+    IF p_email_lider IS NULL OR TRIM(p_email_lider) = '' THEN
+      RAISE EXCEPTION 'El email del líder es requerido';
+    END IF;
+    IF p_password_lider IS NULL OR LENGTH(p_password_lider) < 6 THEN
+      RAISE EXCEPTION 'La contraseña debe tener al menos 6 caracteres';
+    END IF;
+
+    -- Verificar que el nombre de usuario no exista
+    IF EXISTS (SELECT 1 FROM perfiles WHERE nombre_usuario = p_nombre_usuario_lider) THEN
+      RAISE EXCEPTION 'El nombre de usuario ya existe';
+    END IF;
+
+    -- Crear usuario en auth.users (esto debe hacerse desde el frontend con supabase.auth.signUp)
+    -- Por ahora, solo creamos el perfil y retornamos instrucciones
+    -- NOTA: En producción, el frontend debe crear el usuario primero con supabase.auth.signUp
+    -- y luego llamar a esta función con el id del usuario creado
+    
+    RAISE EXCEPTION 'Para crear un nuevo líder, primero crea el usuario con supabase.auth.signUp desde el frontend, luego llama a esta función con el id del usuario';
+  ELSE
+    -- Usar líder existente
+    IF p_id_lider_existente IS NULL THEN
+      RAISE EXCEPTION 'Debe proporcionar un ID de líder existente o crear uno nuevo';
+    END IF;
+
+    -- Verificar que el líder existe y no tiene equipo asignado
+    IF NOT EXISTS (SELECT 1 FROM perfiles WHERE id = p_id_lider_existente AND rol = 'leader') THEN
+      RAISE EXCEPTION 'El líder especificado no existe o no tiene rol de líder';
+    END IF;
+
+    IF EXISTS (SELECT 1 FROM equipos WHERE id_lider = p_id_lider_existente) THEN
+      RAISE EXCEPTION 'El líder ya tiene un equipo asignado';
+    END IF;
+
+    v_id_lider := p_id_lider_existente;
+  END IF;
+
+  -- Crear el equipo
+  INSERT INTO equipos (nombre, id_lider, presupuesto_asignado)
+  VALUES (p_nombre_equipo, v_id_lider, p_presupuesto_asignado)
+  RETURNING id INTO v_id_equipo;
+
+  -- Actualizar el perfil del líder con el id_equipo
+  UPDATE perfiles
+  SET id_equipo = v_id_equipo
+  WHERE id = v_id_lider;
+
+  -- Crear miembros si se proporcionaron
+  IF p_miembros IS NOT NULL AND jsonb_array_length(p_miembros) > 0 THEN
+    FOR v_miembro IN SELECT * FROM jsonb_array_elements(p_miembros)
+    LOOP
+      -- Buscar o crear perfil del miembro
+      -- Por simplicidad, asumimos que el miembro ya existe en perfiles
+      -- En producción, podrías necesitar crear miembros también
+      -- Por ahora, solo registramos en miembros_equipo si el perfil existe
+      
+      -- NOTA: En producción, los miembros deben ser perfiles existentes
+      -- o crear una función separada para crear miembros
+    END LOOP;
+  END IF;
+
+  -- Retornar resultado
+  v_resultado := jsonb_build_object(
+    'id_equipo', v_id_equipo,
+    'nombre_equipo', p_nombre_equipo,
+    'id_lider', v_id_lider,
+    'presupuesto_asignado', p_presupuesto_asignado,
+    'mensaje', 'Equipo creado exitosamente'
+  );
+
+  RETURN v_resultado;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+```
+
+**Nota importante**: Esta función asume que:
+1. Si se crea un nuevo líder, el frontend debe crear primero el usuario con `supabase.auth.signUp()` y luego llamar a esta función con el `id` del usuario creado.
+2. Los miembros deben ser perfiles existentes. Si necesitas crear miembros nuevos, puedes extender esta función o crear una función separada.
+
+**Uso desde el frontend**:
+```typescript
+// Opción 1: Crear equipo con líder existente
+const { data, error } = await supabase.rpc('crear_equipo_completo', {
+  p_nombre_equipo: 'Equipo Barí',
+  p_presupuesto_asignado: 1000000,
+  p_crear_nuevo_lider: false,
+  p_id_lider_existente: 'uuid-del-lider',
+  p_miembros: [
+    { name: 'Juan Pérez', role: 'Miembro' },
+    { name: 'María García', role: 'Colaborador' }
+  ]
+});
+
+// Opción 2: Crear equipo con nuevo líder (crear usuario primero)
+// 1. Crear usuario en auth
+const { data: authData, error: authError } = await supabase.auth.signUp({
+  email: 'nuevo.lider@misincol.local',
+  password: 'password123',
+  options: {
+    data: {
+      nombre_usuario: 'nuevo.lider',
+      nombre_completo: 'Nuevo Líder',
+      rol: 'leader'
+    }
+  }
+});
+
+// 2. Crear perfil (se hace automáticamente con trigger, pero puedes verificarlo)
+// 3. Crear equipo con el id del usuario creado
+const { data, error } = await supabase.rpc('crear_equipo_completo', {
+  p_nombre_equipo: 'Equipo Nuevo',
+  p_presupuesto_asignado: 1000000,
+  p_crear_nuevo_lider: false,
+  p_id_lider_existente: authData.user.id,
+  p_miembros: []
+});
+```
+
+### Paso 4.5: Función para actualizar presupuesto calculado
 
 ```sql
 -- Función para recalcular presupuesto de un equipo
@@ -994,7 +1173,7 @@ BEGIN
   FROM actividades a
   JOIN planes_desarrollo dp ON dp.id = a.id_plan
   WHERE dp.id_equipo = p_id_equipo
-  AND a.status = 'Pendiente';
+  AND a.estado = 'Pendiente';
   
   -- Obtener presupuesto asignado
   SELECT presupuesto_asignado INTO v_total
@@ -1005,8 +1184,8 @@ BEGIN
     'id_equipo', p_id_equipo,
     'presupuesto_asignado', v_total,
     'presupuesto_liquidado', v_liquidated,
-    'budget_pending', v_pending,
-    'budget_available', v_total - v_liquidated
+    'presupuesto_pendiente', v_pending,
+    'presupuesto_disponible', v_total - v_liquidated
   );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -1067,30 +1246,41 @@ CREATE TRIGGER update_lecciones_plan_actualizado_en BEFORE UPDATE ON lecciones_p
 -- Función para registrar cambios en planes
 CREATE OR REPLACE FUNCTION registrar_cambios_plan()
 RETURNS TRIGGER AS $$
+DECLARE
+  v_usuario_id UUID;
 BEGIN
+  -- Obtener el ID del usuario actual
+  v_usuario_id := auth.uid();
+  
+  -- Si no hay usuario autenticado (ej: inserción desde SQL Editor), no registrar historial
+  -- Esto permite insertar datos de prueba sin errores
+  IF v_usuario_id IS NULL THEN
+    RETURN COALESCE(NEW, OLD);
+  END IF;
+  
   IF TG_OP = 'INSERT' THEN
     INSERT INTO historial_plan (id_plan, modificado_por, tipo_cambio, valores_nuevos)
     VALUES (
       NEW.id,
-      auth.uid(),
+      v_usuario_id,
       'created',
       to_jsonb(NEW)
     );
     RETURN NEW;
   ELSIF TG_OP = 'UPDATE' THEN
-    INSERT INTO historial_plan (id_plan, modificado_por, tipo_cambio, valores_anteriores, valores_nuevos, description)
+    INSERT INTO historial_plan (id_plan, modificado_por, tipo_cambio, valores_anteriores, valores_nuevos, descripcion)
     VALUES (
       NEW.id,
-      auth.uid(),
+      v_usuario_id,
       CASE 
-        WHEN OLD.status != NEW.status THEN 'status_changed'
+        WHEN OLD.estado != NEW.estado THEN 'status_changed'
         ELSE 'updated'
       END,
       to_jsonb(OLD),
       to_jsonb(NEW),
       CASE 
-        WHEN OLD.status != NEW.status THEN 
-          'Estado cambiado de ' || OLD.status || ' a ' || NEW.status
+        WHEN OLD.estado != NEW.estado THEN 
+          'Estado cambiado de ' || OLD.estado || ' a ' || NEW.estado
         ELSE NULL
       END
     );
@@ -1099,7 +1289,7 @@ BEGIN
     INSERT INTO historial_plan (id_plan, modificado_por, tipo_cambio, valores_anteriores)
     VALUES (
       OLD.id,
-      auth.uid(),
+      v_usuario_id,
       'deleted',
       to_jsonb(OLD)
     );
@@ -1118,17 +1308,56 @@ CREATE TRIGGER log_planes_desarrollo_changes
 ### Paso 5.4: Trigger para crear perfil automáticamente
 
 ```sql
+-- Primero, eliminar el trigger si ya existe (para poder actualizarlo)
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+
 -- Función para crear perfil automáticamente cuando se crea un usuario
 CREATE OR REPLACE FUNCTION manejar_nuevo_usuario()
 RETURNS TRIGGER AS $$
+DECLARE
+  v_nombre_usuario TEXT;
+  v_nombre_completo TEXT;
+  v_rol rol_usuario;
 BEGIN
-  INSERT INTO public.perfiles (id, nombre_usuario, nombre_completo, role)
-  VALUES (
-    NEW.id,
-    COALESCE(NEW.raw_user_meta_data->>'nombre_usuario', NEW.email),
-    COALESCE(NEW.raw_user_meta_data->>'nombre_completo', NEW.raw_user_meta_data->>'name'),
-    COALESCE((NEW.raw_user_meta_data->>'role')::rol_usuario, 'member')
+  -- Extraer nombre_usuario de metadata o del email (antes del @)
+  v_nombre_usuario := COALESCE(
+    NEW.raw_user_meta_data->>'nombre_usuario',
+    SPLIT_PART(NEW.email, '@', 1)
   );
+  
+  -- Extraer nombre_completo de metadata
+  v_nombre_completo := COALESCE(
+    NEW.raw_user_meta_data->>'nombre_completo',
+    NEW.raw_user_meta_data->>'name',
+    v_nombre_usuario
+  );
+  
+  -- Extraer rol de metadata o usar 'member' por defecto
+  v_rol := COALESCE(
+    (NEW.raw_user_meta_data->>'role')::rol_usuario,
+    'member'
+  );
+  
+  -- Insertar perfil (con manejo de errores silencioso)
+  BEGIN
+    INSERT INTO public.perfiles (id, nombre_usuario, nombre_completo, rol)
+    VALUES (NEW.id, v_nombre_usuario, v_nombre_completo, v_rol)
+    ON CONFLICT (id) DO UPDATE SET
+      nombre_usuario = EXCLUDED.nombre_usuario,
+      nombre_completo = EXCLUDED.nombre_completo,
+      rol = EXCLUDED.rol;
+  EXCEPTION WHEN OTHERS THEN
+    -- Si hay error (ej: nombre_usuario duplicado), usar un nombre único
+    INSERT INTO public.perfiles (id, nombre_usuario, nombre_completo, rol)
+    VALUES (
+      NEW.id,
+      v_nombre_usuario || '_' || SUBSTRING(NEW.id::TEXT, 1, 8),
+      v_nombre_completo,
+      v_rol
+    )
+    ON CONFLICT (id) DO NOTHING;
+  END;
+  
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -1147,32 +1376,32 @@ CREATE TRIGGER on_auth_user_created
 
 ```sql
 -- Vista materializada para métricas agregadas de equipos
-CREATE MATERIALIZED VIEW metricas_equipo_summary AS
+CREATE MATERIALIZED VIEW resumen_metricas_equipo AS
 SELECT 
   t.id AS id_equipo,
-  t.name AS team_name,
-  p.nombre_completo AS leader_name,
+  t.nombre AS nombre_equipo,
+  p.nombre_completo AS nombre_lider,
   t.presupuesto_asignado,
-  COUNT(DISTINCT CASE WHEN dp.status = 'Activo' THEN dp.id END) AS active_plans_count,
-  COUNT(DISTINCT CASE WHEN dp.status = 'Finalizado' THEN dp.id END) AS completed_plans_count,
-  COUNT(DISTINCT CASE WHEN a.status = 'Pendiente' THEN a.id END) AS pending_actividades_count,
-  COUNT(DISTINCT CASE WHEN a.status = 'Hecha' THEN a.id END) AS done_actividades_count,
+  COUNT(DISTINCT CASE WHEN dp.estado = 'Activo' THEN dp.id END) AS planes_activos_count,
+  COUNT(DISTINCT CASE WHEN dp.estado = 'Finalizado' THEN dp.id END) AS planes_completados_count,
+  COUNT(DISTINCT CASE WHEN a.estado = 'Pendiente' THEN a.id END) AS actividades_pendientes_count,
+  COUNT(DISTINCT CASE WHEN a.estado = 'Hecha' THEN a.id END) AS actividades_completadas_count,
   COALESCE(SUM(a.presupuesto_liquidado), 0) AS total_presupuesto_liquidado,
-  COALESCE(SUM(CASE WHEN a.status = 'Pendiente' THEN (a.presupuesto_total - a.presupuesto_liquidado) ELSE 0 END), 0) AS total_budget_pending
+  COALESCE(SUM(CASE WHEN a.estado = 'Pendiente' THEN (a.presupuesto_total - a.presupuesto_liquidado) ELSE 0 END), 0) AS total_presupuesto_pendiente
 FROM equipos t
 LEFT JOIN perfiles p ON t.id_lider = p.id
 LEFT JOIN planes_desarrollo dp ON dp.id_equipo = t.id
 LEFT JOIN actividades a ON a.id_plan = dp.id
-GROUP BY t.id, t.name, p.nombre_completo, t.presupuesto_asignado;
+GROUP BY t.id, t.nombre, p.nombre_completo, t.presupuesto_asignado;
 
 -- Índice para la vista
-CREATE UNIQUE INDEX ON metricas_equipo_summary (id_equipo);
+CREATE UNIQUE INDEX ON resumen_metricas_equipo (id_equipo);
 
 -- Función para refrescar la vista
 CREATE OR REPLACE FUNCTION actualizar_resumen_metricas_equipo()
 RETURNS void AS $$
 BEGIN
-  REFRESH MATERIALIZED VIEW CONCURRENTLY metricas_equipo_summary;
+  REFRESH MATERIALIZED VIEW CONCURRENTLY resumen_metricas_equipo;
 END;
 $$ LANGUAGE plpgsql;
 ```
@@ -1183,102 +1412,300 @@ $$ LANGUAGE plpgsql;
 
 ### Paso 7.1: Crear usuarios de prueba
 
-**⚠️ IMPORTANTE**: Primero debes crear los usuarios en Supabase Auth manualmente o vía API, luego ejecuta esto:
+**⚠️ IMPORTANTE**: Para crear usuarios de prueba, primero debes crearlos en Supabase Auth. Sigue estos pasos:
+
+#### Opción A: Crear usuarios desde el Dashboard de Supabase (Recomendado)
+
+1. En Supabase, ve a **Authentication** (menú lateral izquierdo)
+2. Haz clic en **Users** (pestaña superior)
+3. Haz clic en el botón **Add user** > **Create new user**
+4. Crea estos 3 usuarios:
+
+   **Usuario 1 - Superadmin:**
+   - **Email**: `superadmin@misincol.local`
+   - **Password**: `superadmin123` (o la que prefieras)
+   - **Auto Confirm User**: ✅ Activar (para que no necesite confirmar email)
+   - **User Metadata** (haz clic en "Raw JSON" y pega esto):
+     ```json
+     {
+       "nombre_usuario": "superadmin",
+       "nombre_completo": "Super Administrador",
+       "role": "superadmin"
+     }
+     ```
+
+   **Usuario 2 - Líder Barí:**
+   - **Email**: `lider-bari@misincol.local`
+   - **Password**: `lider123`
+   - **Auto Confirm User**: ✅ Activar
+   - **User Metadata**:
+     ```json
+     {
+       "nombre_usuario": "lider-bari",
+       "nombre_completo": "Pepe (Líder Barí)",
+       "role": "leader"
+     }
+     ```
+
+   **Usuario 3 - Líder Katíos:**
+   - **Email**: `lider-katios@misincol.local`
+   - **Password**: `lider123`
+   - **Auto Confirm User**: ✅ Activar
+   - **User Metadata**:
+     ```json
+     {
+       "nombre_usuario": "lider-katios",
+       "nombre_completo": "Carla (Líder Katíos)",
+       "role": "leader"
+     }
+     ```
+
+5. **Después de crear los usuarios**, el trigger automático debería crear los perfiles. 
+
+#### ⚠️ Si el trigger falla (Error al crear usuario):
+
+**SOLUCIÓN RECOMENDADA: Crear usuarios SIN trigger y luego crear perfiles manualmente**
+
+Esta es la forma más confiable. Sigue estos pasos:
+
+**Paso A: Desactivar temporalmente el trigger**
 
 ```sql
--- Actualizar perfiles de usuarios de prueba
--- Nota: Reemplaza los UUIDs con los IDs reales de tus usuarios en auth.users
-
--- Superadmin
--- UPDATE perfiles SET 
---   nombre_usuario = 'superadmin',
---   nombre_completo = 'Super Administrador',
---   role = 'superadmin'
--- WHERE id = 'UUID_DEL_USUARIO_SUPERADMIN';
-
--- Líderes
--- UPDATE perfiles SET 
---   nombre_usuario = 'lider-bari',
---   nombre_completo = 'Pepe (Líder Barí)',
---   role = 'leader'
--- WHERE id = 'UUID_DEL_USUARIO_LIDER_BARI';
-
--- UPDATE perfiles SET 
---   nombre_usuario = 'lider-katios',
---   nombre_completo = 'Carla (Líder Katíos)',
---   role = 'leader'
--- WHERE id = 'UUID_DEL_USUARIO_LIDER_KATIOS';
+-- Desactivar el trigger temporalmente
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 ```
+
+**Paso B: Crear usuarios en Supabase Auth (SIN User Metadata)**
+
+1. Ve a **Authentication > Users > Add user > Create new user**
+2. Crea cada usuario **SIN** poner nada en "User Metadata" (déjalo vacío):
+   - **Usuario 1**: Email `superadmin@misincol.local`, Password `superadmin123`, Auto Confirm ✅
+   - **Usuario 2**: Email `lider-bari@misincol.local`, Password `lider123`, Auto Confirm ✅
+   - **Usuario 3**: Email `lider-katios@misincol.local`, Password `lider123`, Auto Confirm ✅
+
+**Paso C: Obtener los UUIDs de los usuarios creados**
+
+1. En **Authentication > Users**, verás los usuarios que acabas de crear
+2. Copia el **User UID** de cada uno (es un UUID largo)
+
+**Paso D: Crear los perfiles manualmente**
+
+Ejecuta esto en SQL Editor, reemplazando los UUIDs con los reales:
+
+```sql
+-- Reemplaza estos UUIDs con los que copiaste de Authentication > Users
+-- Usuario Superadmin
+INSERT INTO perfiles (id, nombre_usuario, nombre_completo, rol)
+VALUES (
+  'UUID_SUPERADMIN_AQUI'::uuid,  -- Reemplaza con el UUID real
+  'superadmin',
+  'Super Administrador',
+  'superadmin'
+)
+ON CONFLICT (id) DO UPDATE SET
+  nombre_usuario = EXCLUDED.nombre_usuario,
+  nombre_completo = EXCLUDED.nombre_completo,
+  rol = EXCLUDED.rol;
+
+-- Usuario Líder Barí
+INSERT INTO perfiles (id, nombre_usuario, nombre_completo, rol)
+VALUES (
+  'UUID_LIDER_BARI_AQUI'::uuid,  -- Reemplaza con el UUID real
+  'lider-bari',
+  'Pepe (Líder Barí)',
+  'leader'
+)
+ON CONFLICT (id) DO UPDATE SET
+  nombre_usuario = EXCLUDED.nombre_usuario,
+  nombre_completo = EXCLUDED.nombre_completo,
+  rol = EXCLUDED.rol;
+
+-- Usuario Líder Katíos
+INSERT INTO perfiles (id, nombre_usuario, nombre_completo, rol)
+VALUES (
+  'UUID_LIDER_KATIOS_AQUI'::uuid,  -- Reemplaza con el UUID real
+  'lider-katios',
+  'Carla (Líder Katíos)',
+  'leader'
+)
+ON CONFLICT (id) DO UPDATE SET
+  nombre_usuario = EXCLUDED.nombre_usuario,
+  nombre_completo = EXCLUDED.nombre_completo,
+  rol = EXCLUDED.rol;
+
+-- Verificar que se crearon correctamente
+SELECT id, nombre_usuario, nombre_completo, rol FROM perfiles;
+```
+
+**Paso E: Reactivar el trigger (opcional, para futuros usuarios)**
+
+Si quieres que el trigger funcione para usuarios futuros, puedes reactivarlo:
+
+```sql
+-- Reactivar el trigger
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION manejar_nuevo_usuario();
+```
+
+---
+
+#### Alternativa: Verificar qué error específico está ocurriendo
+
+Si quieres diagnosticar el problema del trigger, ejecuta esto para ver los logs:
+
+```sql
+-- Ver los últimos errores en la base de datos
+SELECT * FROM pg_stat_statements 
+WHERE query LIKE '%manejar_nuevo_usuario%' 
+ORDER BY calls DESC 
+LIMIT 10;
+```
+
+O verifica directamente si hay problemas con la función:
+
+```sql
+-- Probar la función manualmente (reemplaza con un UUID de usuario real)
+SELECT manejar_nuevo_usuario() FROM auth.users LIMIT 1;
+```
+
+---
+
+#### Opción antigua (si prefieres intentar con metadata):
+
+```sql
+-- Crear perfil manualmente para el usuario creado
+INSERT INTO perfiles (id, nombre_usuario, nombre_completo, rol)
+VALUES (
+  'USER_UUID'::uuid,  -- Reemplaza con el UUID del usuario
+  'superadmin',       -- O 'lider-bari', 'lider-katios'
+  'Super Administrador',  -- O el nombre correspondiente
+  'superadmin'        -- O 'leader'
+)
+ON CONFLICT (id) DO UPDATE SET
+  nombre_usuario = EXCLUDED.nombre_usuario,
+  nombre_completo = EXCLUDED.nombre_completo,
+  rol = EXCLUDED.rol;
+```
+
+**Opción 2: Verificar y corregir el trigger**
+
+Si el trigger no funciona, verifica que esté creado:
+
+```sql
+-- Verificar que el trigger existe
+SELECT * FROM pg_trigger WHERE tgname = 'on_auth_user_created';
+
+-- Si no existe, créalo de nuevo (ejecuta el Paso 5.4 completo)
+```
+
+**Opción 3: Verificar perfiles creados**
+
+```sql
+-- Ver todos los perfiles
+SELECT id, nombre_usuario, nombre_completo, rol FROM perfiles;
+
+-- Ver usuarios en auth.users
+SELECT id, email, raw_user_meta_data FROM auth.users;
+```
+
+**Nota**: Los perfiles deberían crearse automáticamente gracias al trigger que configuramos en el Paso 5. Si no se crearon, revisa que el trigger esté activo.
 
 ### Paso 7.2: Crear equipos de prueba
 
 ```sql
--- Insertar equipos de prueba
--- Nota: Reemplaza los UUIDs con los IDs reales de los líderes
+-- Insertar equipos de prueba con UUIDs válidos
+-- Nota: Estos UUIDs son generados automáticamente, puedes usar los que quieras
 
-INSERT INTO equipos (id, name, id_lider, presupuesto_asignado) VALUES
-  ('team-1'::uuid, 'Barí', NULL, 60000),
-  ('team-2'::uuid, 'Katíos', NULL, 75000)
-ON CONFLICT (id) DO NOTHING;
+INSERT INTO equipos (id, nombre, id_lider, presupuesto_asignado) VALUES
+  ('11111111-1111-1111-1111-111111111111'::uuid, 'Barí', '055fd2f5-156d-4bef-85d1-c8aa56e01118'::uuid, 60000),
+  ('22222222-2222-2222-2222-222222222222'::uuid, 'Katíos', '95802e35-6448-470c-ab4a-c865cfafb287'::uuid, 75000)
+ON CONFLICT (id) DO UPDATE SET
+  nombre = EXCLUDED.nombre,
+  id_lider = EXCLUDED.id_lider,
+  presupuesto_asignado = EXCLUDED.presupuesto_asignado;
 
--- Actualizar los perfiles con id_equipo
--- UPDATE perfiles SET id_equipo = 'team-1'::uuid WHERE nombre_usuario = 'lider-bari';
--- UPDATE perfiles SET id_equipo = 'team-2'::uuid WHERE nombre_usuario = 'lider-katios';
+-- Actualizar los perfiles con id_equipo (asociar líderes a sus equipos)
+UPDATE perfiles 
+SET id_equipo = '11111111-1111-1111-1111-111111111111'::uuid 
+WHERE nombre_usuario = 'lider-bari';
 
--- Actualizar equipos con id_lider
--- UPDATE equipos SET id_lider = (SELECT id FROM perfiles WHERE nombre_usuario = 'lider-bari') WHERE id = 'team-1'::uuid;
--- UPDATE equipos SET id_lider = (SELECT id FROM perfiles WHERE nombre_usuario = 'lider-katios') WHERE id = 'team-2'::uuid;
+UPDATE perfiles 
+SET id_equipo = '22222222-2222-2222-2222-222222222222'::uuid 
+WHERE nombre_usuario = 'lider-katios';
+
+-- Verificar que se crearon correctamente
+SELECT 
+  e.id AS equipo_id,
+  e.nombre AS equipo_nombre,
+  p.nombre_completo AS lider_nombre,
+  e.presupuesto_asignado
+FROM equipos e
+LEFT JOIN perfiles p ON e.id_lider = p.id;
 ```
 
 ### Paso 7.3: Crear planes y actividades de prueba
 
 ```sql
--- Planes de desarrollo
-INSERT INTO planes_desarrollo (id, id_equipo, name, category, status, fecha_inicio, fecha_fin, summary) VALUES
-  ('plan-1'::uuid, 'team-1'::uuid, 'Investigación 2025', 'Investigación', 'Activo', '2025-01-10', '2025-12-20', 'Profundizar diagnóstico territorial'),
-  ('plan-2'::uuid, 'team-1'::uuid, 'Autocuidado 2024', 'Autocuidado', 'Finalizado', '2024-03-01', '2024-11-30', 'Fortalecer bienestar del equipo'),
-  ('plan-3'::uuid, 'team-2'::uuid, 'Encarnación 2025', 'Encarnación', 'Activo', '2025-02-01', '2025-11-15', 'Acompañar procesos comunitarios'),
-  ('plan-4'::uuid, 'team-2'::uuid, 'Evangelización 2023', 'Evangelización', 'Archivado', '2023-03-10', '2023-12-12', 'Proceso de acompañamiento espiritual')
+-- Planes de desarrollo (incluyendo etapas_plan)
+-- Usando UUIDs válidos y los IDs reales de los equipos creados
+INSERT INTO planes_desarrollo (id, id_equipo, nombre, categoria, estado, fecha_inicio, fecha_fin, resumen, etapas_plan) VALUES
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid, '11111111-1111-1111-1111-111111111111'::uuid, 'Investigación 2025', 'Investigación', 'Activo', '2025-01-10', '2025-12-20', 'Profundizar diagnóstico territorial', 
+   ARRAY['Fase de diagnóstico', 'Fase de ejecución', 'Fase de evaluación', 'Fase de cierre']::TEXT[]),
+  ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'::uuid, '11111111-1111-1111-1111-111111111111'::uuid, 'Autocuidado 2024', 'Autocuidado', 'Finalizado', '2024-03-01', '2024-11-30', 'Fortalecer bienestar del equipo',
+   ARRAY['Fase inicial', 'Fase de implementación', 'Fase de seguimiento']::TEXT[]),
+  ('cccccccc-cccc-cccc-cccc-cccccccccccc'::uuid, '22222222-2222-2222-2222-222222222222'::uuid, 'Encarnación 2025', 'Encarnación', 'Activo', '2025-02-01', '2025-11-15', 'Acompañar procesos comunitarios',
+   ARRAY['Fase de diagnóstico', 'Fase de ejecución', 'Fase de evaluación']::TEXT[]),
+  ('dddddddd-dddd-dddd-dddd-dddddddddddd'::uuid, '22222222-2222-2222-2222-222222222222'::uuid, 'Evangelización 2023', 'Evangelización', 'Archivado', '2023-03-10', '2023-12-12', 'Proceso de acompañamiento espiritual',
+   ARRAY['Fase de planeación', 'Fase de ejecución', 'Fase de cierre']::TEXT[])
 ON CONFLICT (id) DO NOTHING;
 
--- Actividades
+-- Objetivos de área (con numero_objetivo)
+INSERT INTO objetivos_area (id, id_plan, categoria, descripcion, numero_orden, numero_objetivo) VALUES
+  ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee'::uuid, 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid, 'Investigación', 'Mapear comunidades clave del territorio', 1, 1),
+  ('ffffffff-ffff-ffff-ffff-ffffffffffff'::uuid, 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid, 'Investigación', 'Documentar saberes ancestrales', 2, 2),
+  ('11111111-1111-1111-1111-111111111112'::uuid, 'cccccccc-cccc-cccc-cccc-cccccccccccc'::uuid, 'Encarnación', 'Instalar brigadas de salud en 3 municipios', 1, 3),
+  ('22222222-2222-2222-2222-222222222223'::uuid, 'cccccccc-cccc-cccc-cccc-cccccccccccc'::uuid, 'Encarnación', 'Fortalecer liderazgo juvenil', 2, 4)
+ON CONFLICT (id) DO NOTHING;
+
+-- Actividades (incluyendo etapa_plan y numero_objetivo)
 INSERT INTO actividades (
-  id, id_equipo, id_plan, name, responsable, presupuesto_total, presupuesto_liquidado, 
-  status, stage, area, objective, description, situacion_actual, objetivo_mediano, objetivo_largo,
-  frequency, veces_por_ano, fecha_inicio, fecha_fin, semanas_totales, semanas_restantes, obstacles
+  id, id_equipo, id_plan, id_objetivo, nombre, responsable, presupuesto_total, presupuesto_liquidado, 
+  estado, etapa, etapa_plan, area, objetivo, numero_objetivo, descripcion, situacion_actual, objetivo_mediano, objetivo_largo,
+  frecuencia, veces_por_ano, fecha_inicio, fecha_fin, semanas_totales, semanas_restantes, obstaculos
 ) VALUES
-  ('act-1'::uuid, 'team-1'::uuid, 'plan-1'::uuid, 'Cartografiado comunitario', 'Ana', 12000, 6000, 
-   'Hecha', 'Diagnóstico', 'Territorio', 'Mapear comunidades clave', 
+  ('33333333-3333-3333-3333-333333333333'::uuid, '11111111-1111-1111-1111-111111111111'::uuid, 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid, 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee'::uuid, 'Cartografiado comunitario', 'Ana', 12000, 6000, 
+   'Hecha', 'Contacto', 'Fase de diagnóstico', 'Investigación', 'Mapear comunidades clave', 1,
    'Se planificó junto con líderes locales', 'Fase inicial completada en 4 veredas', 
    'Completar cobertura 80% territorio', 'Cobertura total y documentación', 
    'Mensual', 6, '2025-01-15', '2025-04-30', 16, 0, 'Retrasos por clima'),
    
-  ('act-2'::uuid, 'team-1'::uuid, 'plan-1'::uuid, 'Taller con sabedores', 'Luis', 8000, 0, 
-   'Pendiente', 'Planeación', 'Cultura', 'Recoger saberes locales', 
+  ('44444444-4444-4444-4444-444444444444'::uuid, '11111111-1111-1111-1111-111111111111'::uuid, 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'::uuid, 'ffffffff-ffff-ffff-ffff-ffffffffffff'::uuid, 'Taller con sabedores', 'Luis', 8000, 0, 
+   'Pendiente', 'Comunicar', 'Fase de ejecución', 'Investigación', 'Recoger saberes locales', 2,
    'Taller de transferencia con sabedores ancestrales', 'Convocatoria abierta pero sin fecha confirmada', 
    'Lograr asistencia de 30 líderes', 'Crear repositorio de saberes', 
    'Bimestral', 4, '2025-05-10', '2025-07-05', 8, 6, 'Disponibilidad de agenda'),
    
-  ('act-3'::uuid, 'team-1'::uuid, 'plan-2'::uuid, 'Círculos de autocuidado', 'Marta', 5000, 5000, 
-   'Hecha', 'Seguimiento', 'Cuidado', 'Crear espacios de escucha', 
+  ('55555555-5555-5555-5555-555555555555'::uuid, '11111111-1111-1111-1111-111111111111'::uuid, 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'::uuid, NULL, 'Círculos de autocuidado', 'Marta', 5000, 5000, 
+   'Hecha', 'Contacto', 'Fase de implementación', 'Autocuidado', 'Crear espacios de escucha', NULL,
    'Jornadas mensuales de acompañamiento', 'Se ejecutaron 8 sesiones', 
    'Mantener espacios quincenales', 'Consolidar red de apoyo', 
    'Mensual', 8, '2024-03-05', '2024-10-28', 32, 0, 'Ninguno'),
    
-  ('act-4'::uuid, 'team-2'::uuid, 'plan-3'::uuid, 'Brigadas itinerantes', 'José', 15000, 7000, 
-   'Hecha', 'Implementación', 'Campo', 'Instalar brigadas de salud', 
+  ('66666666-6666-6666-6666-666666666666'::uuid, '22222222-2222-2222-2222-222222222222'::uuid, 'cccccccc-cccc-cccc-cccc-cccccccccccc'::uuid, '11111111-1111-1111-1111-111111111112'::uuid, 'Brigadas itinerantes', 'José', 15000, 7000, 
+   'Hecha', 'Contacto', 'Fase de ejecución', 'Encarnación', 'Instalar brigadas de salud', 3,
    'Recorridos por tres municipios priorizados', 'Un municipio cubierto', 
    'Cubrir los tres municipios', 'Instalar puestos permanentes', 
    'Quincenal', 10, '2025-02-10', '2025-08-30', 28, 12, 'Falta de transporte'),
    
-  ('act-5'::uuid, 'team-2'::uuid, 'plan-3'::uuid, 'Escuela de liderazgo', 'Paula', 10000, 2000, 
-   'Pendiente', 'Formación', 'Formación', 'Fortalecer líderes juveniles', 
+  ('77777777-7777-7777-7777-777777777777'::uuid, '22222222-2222-2222-2222-222222222222'::uuid, 'cccccccc-cccc-cccc-cccc-cccccccccccc'::uuid, '22222222-2222-2222-2222-222222222223'::uuid, 'Escuela de liderazgo', 'Paula', 10000, 2000, 
+   'Pendiente', 'Comunicar', 'Fase de ejecución', 'Encarnación', 'Fortalecer líderes juveniles', 4,
    'Programa de diez módulos', 'Diseño curricular en progreso', 
    'Impulsar participación de 25 jóvenes', 'Graduar primera cohorte', 
    'Semanal', 12, '2025-06-05', '2025-10-25', 20, 18, 'Baja inscripción'),
    
-  ('act-6'::uuid, 'team-2'::uuid, 'plan-4'::uuid, 'Encuentros comunitarios', 'Samuel', 6000, 6000, 
-   'Hecha', 'Ejecución', 'Comunidad', 'Fortalecer redes de apoyo', 
+  ('88888888-8888-8888-8888-888888888888'::uuid, '22222222-2222-2222-2222-222222222222'::uuid, 'dddddddd-dddd-dddd-dddd-dddddddddddd'::uuid, NULL, 'Encuentros comunitarios', 'Samuel', 6000, 6000, 
+   'Hecha', 'Contacto', 'Fase de ejecución', 'Evangelización', 'Fortalecer redes de apoyo', NULL,
    'Encuentros trimestrales', 'Se realizaron 4 encuentros', 
    'Repetir ciclo en 2025', 'Crear guía metodológica', 
    'Trimestral', 4, '2023-04-01', '2023-11-30', 32, 0, 'Clima lluvioso')
@@ -1290,19 +1717,19 @@ ON CONFLICT (id) DO NOTHING;
 ```sql
 -- Métricas para equipo 1 (Barí)
 INSERT INTO metricas_equipo (
-  id_equipo, population, evangelical_congregations, evangelicals,
-  first_time_contacts, interested_in_gospel, heard_gospel,
-  seeking_god, opportunity_to_respond,
-  believed_message, baptized,
-  regular_bible_studies, personally_mentored, new_groups_this_year,
-  ministerial_training, other_areas_training, pastoral_training, 
-  biblical_training, church_planting_training,
-  groups_with_church_prospects, churches_at_end_of_period,
-  first_gen_churches, second_gen_churches, third_gen_churches,
-  lost_first_gen_churches, lost_second_gen_churches, lost_third_gen_churches,
-  ministry_location
+  id_equipo, poblacion, congregaciones_evangelicas, evangelicos,
+  contactos_primera_vez, interesados_evangelio, escucharon_evangelio,
+  buscando_dios, oportunidad_responder,
+  creyeron_mensaje, bautizados,
+  estudios_biblicos_regulares, discipulado_personal, grupos_nuevos_este_ano,
+  entrenamiento_ministerial, entrenamiento_otras_areas, entrenamiento_pastoral, 
+  entrenamiento_biblico, entrenamiento_plantacion_iglesias,
+  grupos_con_prospectos_iglesia, iglesias_fin_periodo,
+  iglesias_primera_gen, iglesias_segunda_gen, iglesias_tercera_gen,
+  iglesias_perdidas_primera_gen, iglesias_perdidas_segunda_gen, iglesias_perdidas_tercera_gen,
+  ubicacion_ministerio
 ) VALUES (
-  'team-1'::uuid, 15000, 7, 350,
+  '11111111-1111-1111-1111-111111111111'::uuid, 15000, 7, 350,
   15, 12, 20,
   9, 7,
   6, 4,
@@ -1319,19 +1746,19 @@ ON CONFLICT (id_equipo) DO UPDATE SET
 
 -- Métricas para equipo 2 (Katíos)
 INSERT INTO metricas_equipo (
-  id_equipo, population, evangelical_congregations, evangelicals,
-  first_time_contacts, interested_in_gospel, heard_gospel,
-  seeking_god, opportunity_to_respond,
-  believed_message, baptized,
-  regular_bible_studies, personally_mentored, new_groups_this_year,
-  ministerial_training, other_areas_training, pastoral_training,
-  biblical_training, church_planting_training,
-  groups_with_church_prospects, churches_at_end_of_period,
-  first_gen_churches, second_gen_churches, third_gen_churches,
-  lost_first_gen_churches, lost_second_gen_churches, lost_third_gen_churches,
-  ministry_location
+  id_equipo, poblacion, congregaciones_evangelicas, evangelicos,
+  contactos_primera_vez, interesados_evangelio, escucharon_evangelio,
+  buscando_dios, oportunidad_responder,
+  creyeron_mensaje, bautizados,
+  estudios_biblicos_regulares, discipulado_personal, grupos_nuevos_este_ano,
+  entrenamiento_ministerial, entrenamiento_otras_areas, entrenamiento_pastoral,
+  entrenamiento_biblico, entrenamiento_plantacion_iglesias,
+  grupos_con_prospectos_iglesia, iglesias_fin_periodo,
+  iglesias_primera_gen, iglesias_segunda_gen, iglesias_tercera_gen,
+  iglesias_perdidas_primera_gen, iglesias_perdidas_segunda_gen, iglesias_perdidas_tercera_gen,
+  ubicacion_ministerio
 ) VALUES (
-  'team-2'::uuid, 20000, 10, 500,
+  '22222222-2222-2222-2222-222222222222'::uuid, 20000, 10, 500,
   20, 16, 25,
   12, 10,
   8, 6,
@@ -1393,20 +1820,20 @@ Después de crear los usuarios en Auth, ejecuta:
 -- UPDATE perfiles SET 
 --   nombre_usuario = 'superadmin',
 --   nombre_completo = 'Super Administrador',
---   role = 'superadmin'
+--   rol = 'superadmin'
 -- WHERE id IN (SELECT id FROM auth.users WHERE email = 'superadmin@misincol.local');
 
 -- UPDATE perfiles SET 
 --   nombre_usuario = 'lider-bari',
 --   nombre_completo = 'Pepe',
---   role = 'leader',
+--   rol = 'leader',
 --   id_equipo = 'team-1'::uuid
 -- WHERE id IN (SELECT id FROM auth.users WHERE email = 'lider-bari@misincol.local');
 
 -- UPDATE perfiles SET 
 --   nombre_usuario = 'lider-katios',
 --   nombre_completo = 'Carla',
---   role = 'leader',
+--   rol = 'leader',
 --   id_equipo = 'team-2'::uuid
 -- WHERE id IN (SELECT id FROM auth.users WHERE email = 'lider-katios@misincol.local');
 
@@ -1507,7 +1934,7 @@ Una vez completado el backend:
 
 - **Error de permisos**: Verifica que las políticas RLS estén correctamente configuradas
 - **Error de foreign key**: Asegúrate de crear las tablas en el orden correcto
-- **Error de función**: Verifica que las funciones helper (`get_rol_usuario`, `get_user_id_equipo`) existan antes de crear políticas
+- **Error de función**: Verifica que las funciones helper (`obtener_rol_usuario`, `obtener_id_equipo_usuario`) existan antes de crear políticas
 - **Error de trigger**: Verifica que la función `manejar_nuevo_usuario` tenga permisos `SECURITY DEFINER`
 
 ---

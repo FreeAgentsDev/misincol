@@ -104,6 +104,7 @@ erDiagram
         date start_date
         date end_date
         text summary
+        text[] etapas_plan "Array de etapas del plan"
         timestamp created_at
         timestamp updated_at
     }
@@ -113,7 +114,8 @@ erDiagram
         uuid plan_id FK "FK -> development_plans"
         enum category "Investigación|Encarnación|Evangelización|Entrenamiento|Autocuidado"
         text description
-        integer order_number
+        integer numero_orden "Orden dentro del área"
+        integer numero_objetivo "Número del objetivo global (opcional)"
         timestamp created_at
         timestamp updated_at
     }
@@ -128,9 +130,11 @@ erDiagram
         numeric budget_total
         numeric budget_liquidated
         enum status "Hecha|Pendiente"
-        string stage
+        string stage "Etapa de la actividad"
+        string etapa_plan "Etapa del plan a la que pertenece"
         string area
-        string objective
+        string objetivo "Mantenido por compatibilidad"
+        integer numero_objetivo "Número del objetivo global (opcional)"
         text description
         text current_situation
         text goal_mid
