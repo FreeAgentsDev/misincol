@@ -1,34 +1,169 @@
+"use client";
+
 import Link from "next/link";
-import { loadTeams } from "@/lib/mock-data";
-import { PlanCategory } from "@/lib/types";
+import { useEffect, useState } from "react";
+import { useAuth } from "@/context/auth-context";
+import { useSearchParams } from "next/navigation";
+import { getEquipoById, getPlanActivo, getActividadesByPlan, getPlanesByEquipo } from "@/lib/supabase-queries";
+import type { DevelopmentPlan, Activity } from "@/lib/types";
 
-const categories: PlanCategory[] = [
-  "Investigación",
-  "Encarnación",
-  "Evangelización",
-  "Entrenamiento",
-  "Autocuidado"
-];
+export default function LeaderDashboard() {
+  const { user, loading: authLoading } = useAuth();
+  const searchParams = useSearchParams();
+  const [team, setTeam] = useState<any>(null);
+  const [activePlan, setActivePlan] = useState<DevelopmentPlan | null>(null);
+  const [activities, setActivities] = useState<Activity[]>([]);
+  const [allPlans, setAllPlans] = useState<DevelopmentPlan[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-interface Props {
-  searchParams?: Record<string, string | string[] | undefined>;
-}
+  const teamId = user?.teamId || searchParams?.get("team") || null;
 
-export default async function LeaderDashboard({ searchParams }: Props) {
-  const teams = await loadTeams();
-  const teamId = typeof searchParams?.team === "string" ? searchParams.team : teams[0]?.id;
-  const team = teams.find((entry) => entry.id === teamId) ?? teams[0];
+  useEffect(() => {
+    async function loadDashboardData() {
+      if (authLoading) return;
+      
+      if (!teamId) {
+        setError("No hay equipo asignado a tu usuario. Contacta al administrador.");
+        setLoading(false);
+        return;
+      }
 
-  const activePlan = team?.plans.find((plan) => plan.status === "Activo");
+      try {
+        setLoading(true);
+        setError(null);
 
-  if (!team) {
+        // Cargar equipo
+        const teamData = await getEquipoById(teamId);
+        if (!teamData) {
+          setError("Equipo no encontrado.");
+          setLoading(false);
+          return;
+        }
+        setTeam(teamData);
+
+        // Cargar plan activo
+        const planActivo = await getPlanActivo(teamId);
+        if (planActivo) {
+          // Mapear plan activo
+          const mappedPlan: DevelopmentPlan = {
+            id: planActivo.id,
+            teamId: planActivo.id_equipo,
+            name: planActivo.nombre,
+            category: planActivo.categoria as DevelopmentPlan["category"],
+            status: planActivo.estado as DevelopmentPlan["status"],
+            startDate: planActivo.fecha_inicio || "",
+            endDate: planActivo.fecha_fin || "",
+            summary: planActivo.resumen || "",
+            activities: [],
+          };
+          setActivePlan(mappedPlan);
+
+          // Cargar actividades del plan activo
+          const actividadesData = await getActividadesByPlan(planActivo.id);
+          const mappedActivities: Activity[] = actividadesData.map((a: any) => ({
+            id: a.id,
+            teamId: a.id_equipo,
+            planId: a.id_plan,
+            name: a.nombre,
+            responsable: a.responsable || "",
+            budgetTotal: Number(a.presupuesto_total || 0),
+            budgetLiquidated: Number(a.presupuesto_liquidado || 0),
+            status: a.estado as "Hecha" | "Pendiente",
+            stage: a.etapa || "",
+            area: a.area || "",
+            objective: a.objetivo || "",
+            description: a.descripcion || "",
+            currentSituation: a.situacion_actual || "",
+            goalMid: a.objetivo_mediano || "",
+            goalLong: a.objetivo_largo || "",
+            frequency: a.frecuencia || "",
+            timesPerYear: Number(a.veces_por_ano || 0),
+            startDate: a.fecha_inicio || "",
+            endDate: a.fecha_fin || "",
+            totalWeeks: Number(a.semanas_totales || 0),
+            remainingWeeks: Number(a.semanas_restantes || 0),
+            obstacles: a.obstaculos || "",
+          }));
+          setActivities(mappedActivities);
+          mappedPlan.activities = mappedActivities;
+          setActivePlan(mappedPlan);
+        }
+
+        // Cargar todos los planes del equipo
+        const planesData = await getPlanesByEquipo(teamId);
+        const mappedPlans: DevelopmentPlan[] = await Promise.all(
+          planesData.map(async (p: any) => {
+            const planActivities = await getActividadesByPlan(p.id);
+            return {
+              id: p.id,
+              teamId: p.id_equipo,
+              name: p.nombre,
+              category: p.categoria as DevelopmentPlan["category"],
+              status: p.estado as DevelopmentPlan["status"],
+              startDate: p.fecha_inicio || "",
+              endDate: p.fecha_fin || "",
+              summary: p.resumen || "",
+              activities: planActivities.map((a: any) => ({
+                id: a.id,
+                teamId: a.id_equipo,
+                planId: a.id_plan,
+                name: a.nombre,
+                responsable: a.responsable || "",
+                budgetTotal: Number(a.presupuesto_total || 0),
+                budgetLiquidated: Number(a.presupuesto_liquidado || 0),
+                status: a.estado as "Hecha" | "Pendiente",
+                stage: a.etapa || "",
+                area: a.area || "",
+                objective: a.objetivo || "",
+                description: a.descripcion || "",
+                currentSituation: a.situacion_actual || "",
+                goalMid: a.objetivo_mediano || "",
+                goalLong: a.objetivo_largo || "",
+                frequency: a.frecuencia || "",
+                timesPerYear: Number(a.veces_por_ano || 0),
+                startDate: a.fecha_inicio || "",
+                endDate: a.fecha_fin || "",
+                totalWeeks: Number(a.semanas_totales || 0),
+                remainingWeeks: Number(a.semanas_restantes || 0),
+                obstacles: a.obstaculos || "",
+              })),
+            };
+          })
+        );
+        setAllPlans(mappedPlans);
+      } catch (err) {
+        console.error("Error al cargar datos del dashboard:", err);
+        setError("Error al cargar los datos. Por favor, intenta nuevamente.");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadDashboardData();
+  }, [teamId, authLoading]);
+
+  if (authLoading || loading) {
+    return (
+      <section className="space-y-8">
+        <div className="flex items-center justify-center py-12">
+          <div className="flex items-center gap-3 rounded-3xl border border-white/60 bg-white/85 px-6 py-4 text-cocoa-700 shadow-soft backdrop-blur">
+            <span className="h-2.5 w-2.5 animate-ping rounded-full bg-brand-500" />
+            <span className="text-sm font-medium">Cargando dashboard...</span>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  if (error || !team) {
     return (
       <section className="space-y-6">
         <h1 className="text-3xl font-semibold tracking-tight text-cocoa-900">
-          No hay equipos configurados
+          {error || "No hay equipos configurados"}
         </h1>
         <p className="text-sm text-cocoa-600">
-          Aún no se ha vinculado un equipo a este usuario en los datos de ejemplo.
+          {error || "Aún no se ha vinculado un equipo a este usuario."}
         </p>
       </section>
     );
@@ -57,14 +192,11 @@ export default async function LeaderDashboard({ searchParams }: Props) {
     .sort((a, b) => new Date(a.endDate).getTime() - new Date(b.endDate).getTime())
     .slice(0, 3) || [];
 
-  // Obtener todos los planes del equipo
-  const allPlans = team.plans || [];
-
   return (
     <section className="space-y-8">
       <header className="space-y-2">
         <h1 className="text-3xl font-semibold tracking-tight text-cocoa-900">
-          Dashboard - Equipo {team.name}
+          Dashboard - Equipo {team.nombre}
         </h1>
         <p className="text-sm text-cocoa-600">
           Resumen general del estado actual del equipo

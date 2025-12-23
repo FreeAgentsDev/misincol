@@ -1,8 +1,103 @@
 import Link from "next/link";
-import { loadDashboardMetrics } from "@/lib/mock-data";
+import { getDashboardMetrics } from "@/lib/supabase-queries";
+import { getPlanCompleto } from "@/lib/supabase-queries";
+import type { DashboardTeamMetrics, DevelopmentPlan } from "@/lib/types";
+
+// Función para mapear datos de Supabase a DashboardTeamMetrics
+async function mapSupabaseMetricsToDashboard(
+  supabaseMetrics: any[]
+): Promise<DashboardTeamMetrics[]> {
+  return Promise.all(
+    supabaseMetrics.map(async (item) => {
+      let activePlan: DevelopmentPlan | undefined = undefined;
+
+      // Si hay un plan activo, obtener sus detalles completos
+      if (item.id_plan_activo) {
+        const planData = await getPlanCompleto(item.id_plan_activo);
+        if (planData) {
+          activePlan = {
+            id: planData.id,
+            teamId: planData.id_equipo,
+            name: planData.nombre,
+            category: planData.categoria as DevelopmentPlan["category"],
+            status: planData.estado as DevelopmentPlan["status"],
+            startDate: planData.fecha_inicio || "",
+            endDate: planData.fecha_fin || "",
+            summary: planData.resumen || "",
+            activities: (planData.actividades || []).map((a: any) => ({
+              id: a.id,
+              teamId: a.id_equipo,
+              planId: a.id_plan,
+              name: a.nombre,
+              responsable: a.responsable || "",
+              budgetTotal: Number(a.presupuesto_total || 0),
+              budgetLiquidated: Number(a.presupuesto_liquidado || 0),
+              status: a.estado as "Hecha" | "Pendiente",
+              stage: a.etapa || "",
+              area: a.area || "",
+              objective: a.objetivo || "",
+              description: a.descripcion || "",
+              currentSituation: a.situacion_actual || "",
+              goalMid: a.objetivo_mediano || "",
+              goalLong: a.objetivo_largo || "",
+              frequency: a.frecuencia || "",
+              timesPerYear: Number(a.veces_por_ano || 0),
+              startDate: a.fecha_inicio || "",
+              endDate: a.fecha_fin || "",
+              totalWeeks: Number(a.semanas_totales || 0),
+              remainingWeeks: Number(a.semanas_restantes || 0),
+              obstacles: a.obstaculos || "",
+            })),
+          };
+        }
+      }
+
+      return {
+        teamId: item.id_equipo,
+        teamName: item.nombre_equipo,
+        leader: item.lider || "Sin líder",
+        activePlan,
+        completedPlans: Number(item.planes_completados_count || 0),
+        pendingActivities: Number(item.actividades_pendientes_count || 0),
+        doneActivities: Number(item.actividades_completadas_count || 0),
+        budgetLiquidated: Number(item.presupuesto_liquidado || 0),
+        budgetPending: Number(item.presupuesto_pendiente || 0),
+        budgetAssigned: Number(item.presupuesto_asignado || 0),
+      };
+    })
+  );
+}
 
 export default async function SuperAdminDashboard() {
-  const metrics = await loadDashboardMetrics();
+  try {
+    const supabaseMetrics = await getDashboardMetrics();
+    
+    if (!supabaseMetrics || supabaseMetrics.length === 0) {
+      return (
+        <section className="space-y-9">
+          <header className="space-y-3">
+            <div className="space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-[0.35em] text-brand-500">
+                Vista superadmin
+              </p>
+              <h1 className="text-3xl font-semibold tracking-tight text-cocoa-900">
+                Gestión de equipos
+              </h1>
+              <p className="text-lg font-medium text-cocoa-600">
+                Dashboard global
+              </p>
+            </div>
+          </header>
+          <div className="card-elevated">
+            <p className="text-cocoa-600">
+              No hay equipos configurados aún. Crea tu primer equipo para comenzar.
+            </p>
+          </div>
+        </section>
+      );
+    }
+
+    const metrics = await mapSupabaseMetricsToDashboard(supabaseMetrics);
 
   const totals = metrics.reduce(
     (acc, item) => {
@@ -31,8 +126,7 @@ export default async function SuperAdminDashboard() {
           </p>
         </div>
         <p className="max-w-3xl text-sm leading-6 text-cocoa-600">
-          Estado consolidado de los equipos y sus planes de desarrollo. Información generada a
-          partir de los datos demo contenidos en <code>mock-data.csv</code>.
+          Estado consolidado de los equipos y sus planes de desarrollo. Datos en tiempo real desde Supabase.
         </p>
       </header>
 
@@ -159,5 +253,33 @@ export default async function SuperAdminDashboard() {
       </div>
     </section>
   );
+  } catch (error) {
+    console.error("Error al cargar métricas:", error);
+    return (
+      <section className="space-y-9">
+        <header className="space-y-3">
+          <div className="space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-[0.35em] text-brand-500">
+              Vista superadmin
+            </p>
+            <h1 className="text-3xl font-semibold tracking-tight text-cocoa-900">
+              Gestión de equipos
+            </h1>
+            <p className="text-lg font-medium text-cocoa-600">
+              Dashboard global
+            </p>
+          </div>
+        </header>
+        <div className="rounded-lg border border-red-200 bg-red-50 p-4">
+          <p className="text-red-800 font-semibold">
+            Error al cargar los datos
+          </p>
+          <p className="text-red-600 text-sm mt-2">
+            Por favor, verifica tu conexión e intenta nuevamente. Si el problema persiste, contacta al administrador.
+          </p>
+        </div>
+      </section>
+    );
+  }
 }
 
