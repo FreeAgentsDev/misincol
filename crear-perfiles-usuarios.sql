@@ -1,10 +1,68 @@
--- Crear perfiles para los usuarios creados en Supabase Auth
--- Ejecuta este SQL después de haber creado los usuarios en Authentication > Users
+-- ============================================================================
+-- GUÍA: Crear usuarios en Supabase Auth y luego crear perfiles
+-- ============================================================================
+--
+-- PASO 1: Crear usuarios en Supabase Auth (Dashboard)
+-- ============================================================================
+-- Ve a: Authentication > Users > Add user > Create new user
+--
+-- Usuario 1 - Superadmin:
+--   Email: superadmin@misincol.local
+--   Password: 123456
+--   Auto Confirm User: ✅ Activar
+--   User Metadata (Raw JSON):
+--     {
+--       "nombre_usuario": "superadmin",
+--       "nombre_completo": "Super Administrador",
+--       "role": "superadmin"
+--     }
+--
+-- Usuario 2 - Líder Barí:
+--   Email: lider-bari@misincol.local
+--   Password: 123456
+--   Auto Confirm User: ✅ Activar
+--   User Metadata (Raw JSON):
+--     {
+--       "nombre_usuario": "lider-bari",
+--       "nombre_completo": "Pepe (Líder Barí)",
+--       "role": "leader"
+--     }
+--
+-- Usuario 3 - Líder Katíos:
+--   Email: lider-katios@misincol.local
+--   Password: 123456
+--   Auto Confirm User: ✅ Activar
+--   User Metadata (Raw JSON):
+--     {
+--       "nombre_usuario": "lider-katios",
+--       "nombre_completo": "Carla (Líder Katíos)",
+--       "role": "leader"
+--     }
+--
+-- ============================================================================
+-- PASO 2: Obtener los UUIDs de los usuarios creados
+-- ============================================================================
+-- Ejecuta esta consulta para ver los UUIDs de los usuarios que acabas de crear:
+--
+-- SELECT id, email, raw_user_meta_data->>'nombre_usuario' as nombre_usuario
+-- FROM auth.users
+-- WHERE email IN (
+--   'superadmin@misincol.local',
+--   'lider-bari@misincol.local',
+--   'lider-katios@misincol.local'
+-- );
+--
+-- Copia los UUIDs (columna 'id') de cada usuario.
+--
+-- ============================================================================
+-- PASO 3: Crear perfiles (reemplaza los UUIDs con los reales)
+-- ============================================================================
+-- ⚠️ IMPORTANTE: Reemplaza los UUIDs de abajo con los que obtuviste en el PASO 2
 
 -- Perfil Superadmin
 INSERT INTO perfiles (id, nombre_usuario, nombre_completo, rol)
 VALUES (
-  '6d5af1dd-ed2a-4b02-94e3-e5f5fbac3077'::uuid,
+  'REEMPLAZA_CON_UUID_SUPERADMIN'::uuid,  -- ⚠️ Reemplaza con el UUID real
   'superadmin',
   'Super Administrador',
   'superadmin'
@@ -17,7 +75,7 @@ ON CONFLICT (id) DO UPDATE SET
 -- Perfil Líder Barí
 INSERT INTO perfiles (id, nombre_usuario, nombre_completo, rol)
 VALUES (
-  '055fd2f5-156d-4bef-85d1-c8aa56e01118'::uuid,
+  'REEMPLAZA_CON_UUID_LIDER_BARI'::uuid,  -- ⚠️ Reemplaza con el UUID real
   'lider-bari',
   'Pepe (Líder Barí)',
   'leader'
@@ -30,7 +88,7 @@ ON CONFLICT (id) DO UPDATE SET
 -- Perfil Líder Katíos
 INSERT INTO perfiles (id, nombre_usuario, nombre_completo, rol)
 VALUES (
-  '95802e35-6448-470c-ab4a-c865cfafb287'::uuid,
+  'REEMPLAZA_CON_UUID_LIDER_KATIOS'::uuid,  -- ⚠️ Reemplaza con el UUID real
   'lider-katios',
   'Carla (Líder Katíos)',
   'leader'
@@ -40,7 +98,26 @@ ON CONFLICT (id) DO UPDATE SET
   nombre_completo = EXCLUDED.nombre_completo,
   rol = EXCLUDED.rol;
 
--- Verificar que se crearon correctamente
-SELECT id, nombre_usuario, nombre_completo, rol FROM perfiles ORDER BY nombre_usuario;
+-- ============================================================================
+-- PASO 4: Verificar que se crearon correctamente
+-- ============================================================================
+SELECT 
+  id, 
+  nombre_usuario, 
+  nombre_completo, 
+  rol,
+  id_equipo
+FROM perfiles 
+ORDER BY nombre_usuario;
+
+-- ============================================================================
+-- NOTA: Si el trigger automático funcionó, los perfiles ya deberían existir
+-- ============================================================================
+-- Si el trigger `on_auth_user_created` está activo, los perfiles se crean
+-- automáticamente cuando creas los usuarios en Auth. En ese caso, este script
+-- solo actualiza los datos si ya existen.
+--
+-- Para verificar si el trigger está activo:
+-- SELECT * FROM pg_trigger WHERE tgname = 'on_auth_user_created';
 
 
