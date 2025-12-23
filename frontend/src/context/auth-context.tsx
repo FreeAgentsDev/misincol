@@ -41,11 +41,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       console.log("📥 [PROFILE] Cargando perfil para usuario ID:", userId);
       
-      const { data: perfil, error } = await supabase
+      // Timeout de 5 segundos para la consulta
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => {
+          reject(new Error("Timeout: La consulta del perfil tardó más de 5 segundos"));
+        }, 5000);
+      });
+
+      const queryPromise = supabase
         .from("perfiles")
         .select("nombre_usuario, nombre_completo, rol, id_equipo")
         .eq("id", userId)
         .single();
+
+      const { data: perfil, error } = await Promise.race([
+        queryPromise,
+        timeoutPromise
+      ]) as Awaited<ReturnType<typeof queryPromise>>;
 
       console.log("📥 [PROFILE] Respuesta de Supabase:", { 
         data: perfil, 
@@ -59,6 +71,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (error) {
         console.error("❌ [PROFILE] Error al cargar perfil:", error);
+        
+        // Mensajes más específicos según el tipo de error
+        if (error.code === "PGRST116" || error.message.includes("No rows returned")) {
+          console.error("❌ [PROFILE] No existe un perfil en la tabla 'perfiles' para este usuario ID:", userId);
+          console.error("❌ [PROFILE] Asegúrate de que el perfil fue creado correctamente en Supabase");
+        } else if (error.code === "42501" || error.message.includes("permission denied") || error.message.includes("new row violates row-level security")) {
+          console.error("❌ [PROFILE] Error de permisos (RLS): Las políticas de seguridad están bloqueando la lectura del perfil");
+          console.error("❌ [PROFILE] Verifica que exista una política RLS que permita: SELECT WHERE id = auth.uid()");
+        } else if (error.message.includes("Timeout")) {
+          console.error("❌ [PROFILE] La consulta tardó demasiado. Posible problema de conexión o RLS.");
+        }
+        
         throw error;
       }
       
@@ -79,38 +103,95 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return profile;
     } catch (error) {
       console.error("💥 [PROFILE] Error inesperado:", error);
+      if (error instanceof Error) {
+        console.error("💥 [PROFILE] Mensaje:", error.message);
+      }
       return null;
     }
   }, []);
 
   // Inicializar sesión
   useEffect(() => {
+    let mounted = true;
+
+    // Timeout de seguridad para evitar carga infinita
+    const timeoutId = setTimeout(() => {
+      if (mounted) {
+        console.warn("⚠️ [AUTH] Timeout al cargar sesión, estableciendo loading en false");
+        setLoading(false);
+      }
+    }, 5000); // 5 segundos máximo
+
     // Obtener sesión actual
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session }, error: sessionError }) => {
+      if (!mounted) return;
+
+      if (sessionError) {
+        console.error("❌ [AUTH] Error al obtener sesión:", sessionError);
+        setSession(null);
+        setUser(null);
+        setLoading(false);
+        clearTimeout(timeoutId);
+        return;
+      }
+
       setSession(session);
       if (session?.user) {
-        loadUserProfile(session.user.id).then(setUser);
+        loadUserProfile(session.user.id)
+          .then((profile) => {
+            if (!mounted) return;
+            setUser(profile);
+            setLoading(false);
+            clearTimeout(timeoutId);
+          })
+          .catch((error) => {
+            if (!mounted) return;
+            console.error("❌ [AUTH] Error al cargar perfil:", error);
+            // Si hay sesión pero no se puede cargar el perfil, limpiar sesión
+            setUser(null);
+            setSession(null);
+            // Limpiar sesión de Supabase también
+            supabase.auth.signOut().catch(console.error);
+            setLoading(false);
+            clearTimeout(timeoutId);
+          });
       } else {
         setUser(null);
+        setLoading(false);
+        clearTimeout(timeoutId);
       }
-      setLoading(false);
     });
 
     // Escuchar cambios de autenticación
     const {
       data: { subscription }
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (!mounted) return;
+
       setSession(session);
       if (session?.user) {
-        const profile = await loadUserProfile(session.user.id);
-        setUser(profile);
+        try {
+          const profile = await loadUserProfile(session.user.id);
+          if (!mounted) return;
+          setUser(profile);
+        } catch (error) {
+          if (!mounted) return;
+          console.error("❌ [AUTH] Error al cargar perfil en onAuthStateChange:", error);
+          setUser(null);
+          setSession(null);
+        }
       } else {
         setUser(null);
       }
       setLoading(false);
+      clearTimeout(timeoutId);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+      clearTimeout(timeoutId);
+    };
   }, [loadUserProfile]);
 
   /**
@@ -181,13 +262,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // Cargar el perfil del usuario desde la tabla perfiles (según documentación)
       console.log("📋 [LOGIN] Cargando perfil del usuario...");
-      const profile = await loadUserProfile(data.user.id);
+      
+      // Timeout de 6 segundos para cargar el perfil
+      const profilePromise = loadUserProfile(data.user.id);
+      const timeoutPromise = new Promise<null>((resolve) => {
+        setTimeout(() => {
+          console.error("⏱️ [LOGIN] Timeout al cargar el perfil después de 6 segundos");
+          resolve(null);
+        }, 6000);
+      });
+
+      const profile = await Promise.race([profilePromise, timeoutPromise]);
       
       if (!profile) {
         console.error("❌ [LOGIN] No se pudo cargar el perfil");
-        console.error("❌ [LOGIN] Verifica que exista un registro en la tabla 'perfiles' con id =", data.user.id);
+        console.error("❌ [LOGIN] Posibles causas:");
+        console.error("   1. No existe un registro en la tabla 'perfiles' con id =", data.user.id);
+        console.error("   2. Las políticas RLS están bloqueando la lectura del perfil");
+        console.error("   3. Problema de conexión con Supabase");
+        console.error("❌ [LOGIN] Verifica en Supabase:");
+        console.error("   - Que exista el perfil: SELECT * FROM perfiles WHERE id = '" + data.user.id + "';");
+        console.error("   - Que las políticas RLS permitan: SELECT WHERE id = auth.uid()");
+        
+        // Cerrar sesión de Supabase para evitar estado inconsistente
+        await supabase.auth.signOut();
+        
         return { 
-          error: "Error al cargar el perfil del usuario. El usuario existe pero no tiene perfil configurado. Contacta al administrador." 
+          error: "Error al cargar el perfil. Verifica que tu perfil esté configurado correctamente en la base de datos. Si el problema persiste, contacta al administrador." 
         };
       }
       

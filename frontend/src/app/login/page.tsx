@@ -15,10 +15,28 @@ interface DemoUser {
 }
 
 // Usuarios demo por defecto (fallback si no se pueden cargar desde Supabase)
+// Según la documentación del backend: backend-supabase-paso-a-paso.md
 const DEFAULT_DEMO_USERS: DemoUser[] = [
-  { username: "superadmin", password: "123456", role: "superadmin" },
-  { username: "lider-bari", password: "123456", role: "leader", teamId: "11111111-1111-1111-1111-111111111111", fullName: "Pepe (Líder Barí)" },
-  { username: "lider-katios", password: "123456", role: "leader", teamId: "team-2" }
+  { 
+    username: "superadmin", 
+    password: "superadmin123", 
+    role: "superadmin",
+    fullName: "Super Administrador"
+  },
+  { 
+    username: "lider-bari", 
+    password: "lider123", 
+    role: "leader", 
+    teamId: "11111111-1111-1111-1111-111111111111", 
+    fullName: "Pepe (Líder Barí)" 
+  },
+  { 
+    username: "lider-katios", 
+    password: "lider123", 
+    role: "leader", 
+    teamId: "22222222-2222-2222-2222-222222222222",
+    fullName: "Carla (Líder Katíos)"
+  }
 ];
 
 export default function LoginPage() {
@@ -40,6 +58,17 @@ export default function LoginPage() {
 
   // Cargar usuarios desde Supabase
   useEffect(() => {
+    let mounted = true;
+    
+    // Timeout de seguridad: si no carga en 3 segundos, usar usuarios por defecto
+    const timeoutId = setTimeout(() => {
+      if (mounted && loadingUsers) {
+        console.log("⏱️ [USERS] Timeout al cargar usuarios, usando usuarios por defecto");
+        setDemoUsers(DEFAULT_DEMO_USERS);
+        setLoadingUsers(false);
+      }
+    }, 3000);
+
     const loadUsers = async () => {
       try {
         // Intentar cargar usuarios desde perfiles
@@ -49,39 +78,66 @@ export default function LoginPage() {
           .select("nombre_usuario, nombre_completo, rol, id_equipo")
           .limit(10); // Limitar a 10 usuarios para no sobrecargar
 
+        if (!mounted) return;
+
         if (error) {
           // Si hay error (406, 403, etc.), usar usuarios por defecto
-          console.log("Error al cargar usuarios desde Supabase:", error.message);
-          console.log("Usando usuarios por defecto. Ejecuta el script SQL en FIX_RLS_POLICIES.sql para habilitar la carga automática.");
+          console.log("⚠️ [USERS] Error al cargar usuarios desde Supabase:", error.message);
+          console.log("✅ [USERS] Usando usuarios por defecto");
           setDemoUsers(DEFAULT_DEMO_USERS);
           setLoadingUsers(false);
+          clearTimeout(timeoutId);
           return;
         }
 
         if (perfiles && perfiles.length > 0) {
-          // Mapear perfiles a usuarios demo
-          const users: DemoUser[] = perfiles.map((p) => ({
-            username: p.nombre_usuario,
-            password: "123456", // Contraseña por defecto (el usuario debe saberla)
-            role: p.rol,
-            teamId: p.id_equipo || undefined,
-            fullName: p.nombre_completo || undefined
-          }));
+          // Mapeo de contraseñas según documentación del backend
+          // backend-supabase-paso-a-paso.md - Paso 7.1
+          const passwordMap: Record<string, string> = {
+            "superadmin": "superadmin123",
+            "lider-bari": "lider123",
+            "lider-katios": "lider123"
+          };
+
+          // Mapear perfiles a usuarios demo con contraseñas según documentación
+          const users: DemoUser[] = perfiles.map((p) => {
+            // Usar contraseña del mapeo si existe, sino usar una por defecto
+            const password = passwordMap[p.nombre_usuario] || "lider123";
+            
+            return {
+              username: p.nombre_usuario,
+              password: password,
+              role: p.rol,
+              teamId: p.id_equipo || undefined,
+              fullName: p.nombre_completo || undefined
+            };
+          });
+          
+          console.log("✅ [USERS] Usuarios cargados desde Supabase:", users.length);
           setDemoUsers(users);
         } else {
           // Si no hay usuarios, usar usuarios por defecto
-          console.log("No se encontraron usuarios en Supabase, usando usuarios por defecto");
+          console.log("ℹ️ [USERS] No se encontraron usuarios en Supabase, usando usuarios por defecto");
           setDemoUsers(DEFAULT_DEMO_USERS);
         }
       } catch (err) {
-        console.error("Error loading users:", err);
+        if (!mounted) return;
+        console.error("❌ [USERS] Error loading users:", err);
         setDemoUsers(DEFAULT_DEMO_USERS);
       } finally {
-        setLoadingUsers(false);
+        if (mounted) {
+          setLoadingUsers(false);
+          clearTimeout(timeoutId);
+        }
       }
     };
 
     loadUsers();
+
+    return () => {
+      mounted = false;
+      clearTimeout(timeoutId);
+    };
   }, []);
 
   const [isSignUp, setIsSignUp] = useState(false);
